@@ -7,39 +7,41 @@ export const SubjectNode = memo((props: NodeProps) => {
 
   return (
     <div className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in">
+      {/* Enhanced handle styling */}
       <Handle 
         type="source" 
         position={Position.Top} 
-        className="!bg-primary !border-primary !w-4 !h-4"
+        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
       />
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className="!bg-primary !border-primary !w-4 !h-4"
+        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
       />
       <Handle 
         type="source" 
         position={Position.Left} 
-        className="!bg-primary !border-primary !w-4 !h-4"
+        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
       />
       <Handle 
         type="source" 
         position={Position.Right} 
-        className="!bg-primary !border-primary !w-4 !h-4"
+        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
       />
       
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-          <BookOpen className="w-6 h-6 text-primary" />
+      <div className="text-center space-y-4 relative z-10">
+        <div className="w-14 h-14 bg-purple-400/20 rounded-full flex items-center justify-center mx-auto shadow-lg">
+          <BookOpen className="w-7 h-7 text-purple-200" />
         </div>
         
-        <div className="space-y-2">
-          <div className="px-3 py-1 bg-primary/10 rounded-full text-xs font-medium text-primary inline-block">
-            Main Subject
+        <div className="space-y-3">
+          <div className="px-4 py-2 bg-purple-400/20 rounded-full text-sm font-medium text-purple-200 inline-block backdrop-blur-sm border border-purple-400/30">
+            ✨ Main Subject
           </div>
-          <h1 className="text-2xl font-bold text-white leading-tight">
+          <h1 className="text-3xl font-bold text-white leading-tight tracking-tight drop-shadow-lg">
             {data.subject}
           </h1>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-purple-300 to-transparent mx-auto"></div>
         </div>
       </div>
     </div>

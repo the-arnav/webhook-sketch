@@ -8,47 +8,68 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 220 15% 8%;
+    --foreground: 220 10% 95%;
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 15% 10%;
+    --card-foreground: 220 10% 95%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 220 10% 95%;
 
-    --primary: 263 70% 50%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 270 80% 65%;
+    --primary-foreground: 220 10% 5%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 10% 95%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 8% 60%;
 
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 270 60% 50%;
+    --accent-foreground: 220 10% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 220 10% 95%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 263 70% 50%;
+    --border: 220 15% 20%;
+    --input: 220 15% 15%;
+    --ring: 270 80% 65%;
 
-    /* Canvas Design System */
-    --canvas-bg: linear-gradient(135deg, 240 10% 3.9%, 260 15% 8%);
-    --node-title-bg: linear-gradient(135deg, 263 70% 50%, 280 70% 55%);
-    --node-desc-bg: linear-gradient(135deg, 240 3.7% 15.9%, 245 5% 20%);
-    --node-shadow: 0 10px 30px -10px hsl(263 70% 50% / 0.3);
-    --node-shadow-hover: 0 15px 40px -10px hsl(263 70% 50% / 0.5);
-    --edge-color: hsl(263 70% 50%);
-    --glass-bg: hsl(240 3.7% 15.9% / 0.8);
-    --glass-border: hsl(263 70% 50% / 0.2);
+    /* Premium Dark Canvas Design System */
+    --canvas-bg: linear-gradient(135deg, 220 25% 5%, 240 30% 8%, 260 25% 10%);
+    --canvas-overlay: radial-gradient(circle at 30% 20%, 270 80% 15% / 0.3, transparent 60%),
+                      radial-gradient(circle at 70% 80%, 260 70% 20% / 0.2, transparent 60%);
+    
+    --node-subject-bg: linear-gradient(135deg, 270 80% 25%, 280 75% 35%, 290 70% 45%);
+    --node-subject-border: linear-gradient(135deg, 270 80% 50%, 280 75% 60%);
+    --node-subject-shadow: 0 25px 60px -20px hsl(270 80% 25% / 0.6);
+    
+    --node-title-bg: linear-gradient(135deg, 220 30% 15%, 230 25% 20%, 240 30% 25%);
+    --node-title-border: hsl(270 60% 40% / 0.4);
+    --node-title-shadow: 0 20px 40px -15px hsl(270 60% 30% / 0.5);
+    
+    --node-desc-bg: linear-gradient(135deg, 220 20% 12%, 225 15% 15%, 230 20% 18%);
+    --node-desc-border: hsl(220 30% 25% / 0.6);
+    --node-desc-shadow: 0 15px 30px -10px hsl(220 20% 10% / 0.8);
+    
+    --edge-primary: hsl(270 80% 60%);
+    --edge-secondary: hsl(260 70% 50%);
+    --edge-glow: 0 0 20px hsl(270 80% 60% / 0.4);
+    
+    --glass-bg: hsl(220 20% 12% / 0.8);
+    --glass-border: hsl(270 50% 40% / 0.3);
+    --glass-shadow: 0 8px 32px hsl(220 20% 5% / 0.3);
+    
+    /* Premium Effects */
+    --premium-glow: 0 0 30px hsl(270 80% 60% / 0.3);
+    --premium-shadow: 0 20px 60px -20px hsl(220 20% 5% / 0.8);
+    --premium-border: linear-gradient(135deg, hsl(270 80% 50% / 0.5), hsl(280 70% 60% / 0.3));
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --transition-glow: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     --radius: 0.5rem;
 
@@ -124,55 +145,88 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     background: var(--canvas-bg);
+    background-image: var(--canvas-overlay);
     min-height: 100vh;
+    overflow-x: hidden;
   }
 }
 
-/* Canvas Node Styles */
+/* Premium Dark Canvas Node Styles */
 .canvas-node-subject {
-  background: linear-gradient(135deg, hsl(263 70% 50%), hsl(280 70% 60%));
-  box-shadow: 0 20px 50px -15px hsl(263 70% 50% / 0.4);
-  transition: var(--transition-smooth);
-  border: 2px solid hsl(263 70% 50% / 0.3);
-  backdrop-filter: blur(10px);
-  color: white !important;
+  background: var(--node-subject-bg);
+  border: 2px solid transparent;
+  border-image: var(--node-subject-border) 1;
+  box-shadow: var(--node-subject-shadow), var(--premium-glow);
+  transition: var(--transition-glow);
+  backdrop-filter: blur(20px);
+  position: relative;
+}
+
+.canvas-node-subject::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: var(--premium-border);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.6;
 }
 
 .canvas-node-subject:hover {
-  box-shadow: 0 25px 60px -15px hsl(var(--primary) / 0.6);
-  transform: translateY(-3px);
+  box-shadow: var(--node-subject-shadow), 0 0 40px hsl(270 80% 50% / 0.5);
+  transform: translateY(-4px) scale(1.02);
 }
 
 .canvas-node-title {
   background: var(--node-title-bg);
-  box-shadow: var(--node-shadow);
+  border: 1px solid var(--node-title-border);
+  box-shadow: var(--node-title-shadow);
   transition: var(--transition-smooth);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(15px);
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-node-title::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, hsl(270 80% 60% / 0.1), transparent);
+  transition: left 0.5s ease;
 }
 
 .canvas-node-title:hover {
-  box-shadow: var(--node-shadow-hover);
-  transform: translateY(-2px);
+  box-shadow: var(--node-title-shadow), var(--premium-glow);
+  transform: translateY(-3px) scale(1.02);
+  border-color: hsl(270 70% 50% / 0.6);
+}
+
+.canvas-node-title:hover::after {
+  left: 100%;
 }
 
 .canvas-node-description {
   background: var(--node-desc-bg);
-  box-shadow: var(--node-shadow);
+  border: 1px solid var(--node-desc-border);
+  box-shadow: var(--node-desc-shadow);
   transition: var(--transition-smooth);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .canvas-node-description:hover {
-  box-shadow: var(--node-shadow-hover);
+  box-shadow: var(--node-desc-shadow), 0 0 25px hsl(220 30% 20% / 0.4);
   transform: translateY(-2px);
+  border-color: hsl(270 50% 40% / 0.5);
 }
 
 .glass-panel {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--glass-shadow);
   transition: var(--transition-smooth);
 }
 
@@ -215,32 +269,63 @@ All colors MUST be HSL.
   transform: scale(1.02);
 }
 
-/* React Flow Overrides */
+/* Premium Dark React Flow Overrides */
 .react-flow__edge-path {
-  stroke: var(--edge-color);
-  stroke-width: 2;
-  filter: drop-shadow(0 0 10px hsl(263 70% 50% / 0.3));
+  stroke: var(--edge-primary);
+  stroke-width: 3;
+  filter: drop-shadow(var(--edge-glow));
+  transition: var(--transition-smooth);
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 10;
+  animation: flow 2s ease-in-out infinite;
+}
+
+@keyframes flow {
+  0%, 100% { stroke-dashoffset: 0; }
+  50% { stroke-dashoffset: 20; }
 }
 
 .react-flow__controls {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--glass-shadow);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .react-flow__controls button {
   background: transparent;
   border: none;
   color: hsl(var(--foreground));
-  font-size: 16px !important;
-  min-height: 32px !important;
-  min-width: 32px !important;
+  font-size: 18px !important;
+  min-height: 40px !important;
+  min-width: 40px !important;
+  transition: var(--transition-smooth);
+}
+
+.react-flow__controls button:hover {
+  background: hsl(270 50% 30% / 0.3);
+  color: hsl(270 80% 70%);
 }
 
 .react-flow__minimap {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--glass-shadow);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.react-flow__background {
+  background: var(--canvas-bg);
+}
+
+.react-flow__background svg {
+  opacity: 0.1;
 }
 
 /* Prevent text scaling issues */

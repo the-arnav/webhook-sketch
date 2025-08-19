@@ -98,13 +98,15 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         type: 'smoothstep',
         animated: true,
         style: { 
-          stroke: 'var(--edge-color)', 
+          stroke: 'var(--edge-primary)', 
           strokeWidth: 3,
-          filter: 'drop-shadow(0 0 10px hsl(263 70% 50% / 0.3))'
+          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: 'var(--edge-color)',
+          color: 'var(--edge-primary)',
+          width: 8,
+          height: 8,
         },
       });
 
@@ -116,13 +118,16 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         type: 'smoothstep',
         animated: false,
         style: { 
-          stroke: 'var(--edge-color)', 
+          stroke: 'var(--edge-secondary)', 
           strokeWidth: 2,
-          opacity: 0.7
+          opacity: 0.8,
+          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: 'var(--edge-color)',
+          color: 'var(--edge-secondary)',
+          width: 6,
+          height: 6,
         },
       });
     });
@@ -171,11 +176,13 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         <MiniMap 
           className="glass-panel"
           nodeColor={(node) => {
+            if (node.type === 'subject') return '#a855f7';
             if (node.type === 'title') return '#8b5cf6';
             return '#6366f1';
           }}
+          maskColor="rgba(0, 0, 0, 0.8)"
         />
-        <Background color="#8b5cf6" gap={20} size={1} />
+        <Background color="#a855f7" gap={25} size={1} className="opacity-20" />
       </ReactFlow>
     </div>
   );
