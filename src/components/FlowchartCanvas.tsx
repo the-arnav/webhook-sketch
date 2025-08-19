@@ -182,7 +182,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
           }}
           maskColor="rgba(0, 0, 0, 0.8)"
         />
-        <Background color="#a855f7" gap={25} size={1} className="opacity-20" />
+        <Background color="#333333" gap={25} size={1} className="opacity-10" />
       </ReactFlow>
     </div>
   );

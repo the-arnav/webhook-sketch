@@ -37,21 +37,20 @@ All colors MUST be HSL.
     --ring: 270 80% 65%;
 
     /* Premium Dark Canvas Design System */
-    --canvas-bg: linear-gradient(135deg, 220 25% 5%, 240 30% 8%, 260 25% 10%);
-    --canvas-overlay: radial-gradient(circle at 30% 20%, 270 80% 15% / 0.3, transparent 60%),
-                      radial-gradient(circle at 70% 80%, 260 70% 20% / 0.2, transparent 60%);
+    --canvas-bg: hsl(0 0% 0%);
+    --canvas-overlay: transparent;
     
-    --node-subject-bg: linear-gradient(135deg, 270 80% 25%, 280 75% 35%, 290 70% 45%);
-    --node-subject-border: linear-gradient(135deg, 270 80% 50%, 280 75% 60%);
-    --node-subject-shadow: 0 25px 60px -20px hsl(270 80% 25% / 0.6);
+    --node-subject-bg: hsl(0 0% 8%);
+    --node-subject-border: hsl(0 0% 20%);
+    --node-subject-shadow: 0 25px 60px -20px hsl(0 0% 0% / 0.8);
     
-    --node-title-bg: linear-gradient(135deg, 220 30% 15%, 230 25% 20%, 240 30% 25%);
-    --node-title-border: hsl(270 60% 40% / 0.4);
-    --node-title-shadow: 0 20px 40px -15px hsl(270 60% 30% / 0.5);
+    --node-title-bg: hsl(0 0% 8%);
+    --node-title-border: hsl(0 0% 20%);
+    --node-title-shadow: 0 20px 40px -15px hsl(0 0% 0% / 0.8);
     
-    --node-desc-bg: linear-gradient(135deg, 220 20% 12%, 225 15% 15%, 230 20% 18%);
-    --node-desc-border: hsl(220 30% 25% / 0.6);
-    --node-desc-shadow: 0 15px 30px -10px hsl(220 20% 10% / 0.8);
+    --node-desc-bg: hsl(0 0% 8%);
+    --node-desc-border: hsl(0 0% 20%);
+    --node-desc-shadow: 0 15px 30px -10px hsl(0 0% 0% / 0.8);
     
     --edge-primary: hsl(270 80% 60%);
     --edge-secondary: hsl(260 70% 50%);
