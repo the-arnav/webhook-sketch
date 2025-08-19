@@ -14,6 +14,20 @@ const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
   let subject: string | undefined;
   let items: any[] = [];
 
+  // Handle array input first - if it's an array, extract from first element or treat as items
+  if (Array.isArray(obj)) {
+    // If array of objects with output structure, extract from first
+    if (obj.length > 0 && obj[0].output) {
+      return extractDataFromJSON(obj[0]);
+    }
+    // If array of items, check if they look like our target items
+    const firstItem = obj[0];
+    if (firstItem && typeof firstItem === 'object' && 
+        (firstItem.title || firstItem.name || firstItem.label)) {
+      return { items: obj, subject: undefined };
+    }
+  }
+
   // Extract subject/title first
   if (typeof obj === 'object' && obj !== null) {
     const subjectKeys = ['subject', 'title', 'topic', 'name', 'heading', 'theme'];
@@ -32,7 +46,7 @@ const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
       // Check if it's a direct array of items
       const firstItem = searchObj[0];
       if (firstItem && typeof firstItem === 'object' && 
-          (firstItem.title || firstItem.name || firstItem.label)) {
+          (firstItem.title || firstItem.name || firstItem.label || firstItem.itemNumber)) {
         return searchObj;
       }
       
