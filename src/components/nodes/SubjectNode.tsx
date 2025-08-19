@@ -37,7 +37,7 @@ export const SubjectNode = memo((props: NodeProps) => {
           <div className="px-3 py-1 bg-primary/10 rounded-full text-xs font-medium text-primary inline-block">
             Main Subject
           </div>
-          <h1 className="text-2xl font-bold text-foreground leading-tight">
+          <h1 className="text-2xl font-bold text-white leading-tight">
             {data.subject}
           </h1>
         </div>

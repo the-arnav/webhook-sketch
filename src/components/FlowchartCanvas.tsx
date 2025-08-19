@@ -159,9 +159,9 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.1}
-        maxZoom={2}
+        fitViewOptions={{ padding: 0.3, minZoom: 0.3, maxZoom: 1.5 }}
+        minZoom={0.3}
+        maxZoom={1.5}
         defaultEdgeOptions={{
           type: 'smoothstep',
           animated: true,

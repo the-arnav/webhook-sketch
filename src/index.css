@@ -130,11 +130,12 @@ All colors MUST be HSL.
 
 /* Canvas Node Styles */
 .canvas-node-subject {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary)) 50%, hsl(280 70% 60%));
-  box-shadow: 0 20px 50px -15px hsl(var(--primary) / 0.4);
+  background: linear-gradient(135deg, hsl(263 70% 50%), hsl(280 70% 60%));
+  box-shadow: 0 20px 50px -15px hsl(263 70% 50% / 0.4);
   transition: var(--transition-smooth);
-  border: 2px solid hsl(var(--primary) / 0.3);
+  border: 2px solid hsl(263 70% 50% / 0.3);
   backdrop-filter: blur(10px);
+  color: white !important;
 }
 
 .canvas-node-subject:hover {
@@ -231,10 +232,32 @@ All colors MUST be HSL.
   background: transparent;
   border: none;
   color: hsl(var(--foreground));
+  font-size: 16px !important;
+  min-height: 32px !important;
+  min-width: 32px !important;
 }
 
 .react-flow__minimap {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(10px);
+}
+
+/* Prevent text scaling issues */
+.react-flow__node {
+  transform-origin: center center;
+}
+
+.react-flow__node * {
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+/* Ensure text remains readable at all zoom levels */
+.canvas-node-subject h1,
+.canvas-node-title h3,
+.canvas-node-description p {
+  font-size: inherit !important;
+  transform: none !important;
+  zoom: 1 !important;
 }

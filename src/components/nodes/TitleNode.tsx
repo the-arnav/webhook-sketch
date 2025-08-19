@@ -42,7 +42,7 @@ export const TitleNode = memo((props: NodeProps) => {
           </div>
         </div>
         
-        <h3 className="text-lg font-bold text-foreground leading-tight">
+        <h3 className="text-lg font-bold text-white leading-tight">
           {data.title}
         </h3>
       </div>

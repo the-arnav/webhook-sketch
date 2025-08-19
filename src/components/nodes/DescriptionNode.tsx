@@ -35,7 +35,7 @@ export const DescriptionNode = memo((props: NodeProps) => {
           <span className="text-xs text-muted-foreground font-medium">Description</span>
         </div>
         
-        <p className="text-sm text-foreground/90 leading-relaxed">
+        <p className="text-sm text-gray-100 leading-relaxed">
           {data.description}
         </p>
       </div>
