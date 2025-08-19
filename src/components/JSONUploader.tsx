@@ -9,30 +9,157 @@ interface JSONUploaderProps {
   onDataLoad: (data: any[]) => void;
 }
 
+// Smart JSON parser that can extract items from various structures
+const extractItemsFromJSON = (obj: any): any[] => {
+  // If it's already an array with valid items, return it
+  if (Array.isArray(obj)) {
+    // Check if it's a direct array of items
+    const firstItem = obj[0];
+    if (firstItem && typeof firstItem === 'object' && 
+        (firstItem.title || firstItem.name || firstItem.label)) {
+      return obj;
+    }
+    
+    // If it's an array of objects, try to extract from each
+    for (const item of obj) {
+      const extracted = extractItemsFromJSON(item);
+      if (extracted.length > 0) return extracted;
+    }
+  }
+  
+  if (typeof obj !== 'object' || obj === null) return [];
+  
+  // Common property names where items might be stored
+  const commonKeys = [
+    'items', 'data', 'results', 'nodes', 'entries', 'content', 
+    'list', 'array', 'collection', 'records', 'elements'
+  ];
+  
+  // First, check direct common keys
+  for (const key of commonKeys) {
+    if (obj[key] && Array.isArray(obj[key])) {
+      const items = obj[key];
+      if (items.length > 0 && typeof items[0] === 'object') {
+        return items;
+      }
+    }
+  }
+  
+  // If not found directly, search recursively through all properties
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value !== null) {
+      const extracted = extractItemsFromJSON(value);
+      if (extracted.length > 0) return extracted;
+    }
+  }
+  
+  return [];
+};
+
+// Convert any object to standardized format
+const normalizeItem = (item: any, index: number): any => {
+  if (typeof item !== 'object' || item === null) {
+    return {
+      itemNumber: index + 1,
+      title: `Item ${index + 1}`,
+      description: String(item)
+    };
+  }
+  
+  // Try to find title-like properties
+  const titleKeys = ['title', 'name', 'label', 'heading', 'subject', 'topic'];
+  const descKeys = ['description', 'content', 'text', 'body', 'details', 'summary', 'info'];
+  
+  let title = '';
+  let description = '';
+  let itemNumber = item.itemNumber || item.id || item.number || index + 1;
+  
+  // Find title
+  for (const key of titleKeys) {
+    if (item[key] && typeof item[key] === 'string') {
+      title = item[key];
+      break;
+    }
+  }
+  
+  // Find description
+  for (const key of descKeys) {
+    if (item[key] && typeof item[key] === 'string') {
+      description = item[key];
+      break;
+    }
+  }
+  
+  // Fallback: use first string property as title, second as description
+  if (!title || !description) {
+    const stringProps = Object.entries(item)
+      .filter(([key, value]) => typeof value === 'string' && value.length > 0)
+      .map(([key, value]) => ({ key, value: value as string }));
+    
+    if (!title && stringProps.length > 0) {
+      title = stringProps[0].value;
+    }
+    if (!description && stringProps.length > 1) {
+      description = stringProps[1].value;
+    }
+  }
+  
+  // Final fallbacks
+  if (!title) title = `Item ${index + 1}`;
+  if (!description) {
+    // Try to create description from other properties
+    const otherProps = Object.entries(item)
+      .filter(([key, value]) => !titleKeys.includes(key) && value !== null && value !== undefined)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    description = otherProps || 'No description available';
+  }
+  
+  return {
+    itemNumber: Number(itemNumber),
+    title: title.substring(0, 100), // Limit title length
+    description: description.substring(0, 500) // Limit description length
+  };
+};
+
 export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
   const [jsonInput, setJsonInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const sampleJSON = {
-    "output": {
-      "items": [
-        {
-          "itemNumber": 1,
-          "title": "The Big Bang Theory",
-          "description": "The Big Bang is the scientific theory that explains the origin and evolution of the universe. It suggests that the universe began as an infinitely hot and dense point and expanded rapidly around 13.8 billion years ago."
-        },
-        {
-          "itemNumber": 2,
-          "title": "Evidence for the Big Bang",
-          "description": "The Big Bang theory is supported by a wide range of observational evidence, including the cosmic microwave background radiation, the abundance of light elements, and the large-scale structure of the universe."
-        },
-        {
-          "itemNumber": 3,
-          "title": "The Big Bang and the Universe's Expansion",
-          "description": "The Big Bang theory suggests that the universe is still expanding, with most galaxies moving away from each other. This expansion is thought to have begun during the early stages of the universe's evolution."
-        }
-      ]
+  const complexSampleJSON = [
+    {
+      "output": {
+        "items": [
+          {
+            "itemNumber": 1,
+            "title": "The Big Bang Theory",
+            "description": "The Big Bang is the scientific theory that explains the origin and evolution of the universe. It suggests that the universe began as an infinitely hot and dense point and expanded rapidly around 13.8 billion years ago."
+          },
+          {
+            "itemNumber": 2,
+            "title": "Evidence for the Big Bang",
+            "description": "The Big Bang theory is supported by a wide range of observational evidence, including the cosmic microwave background radiation, the abundance of light elements, and the large-scale structure of the universe."
+          }
+        ]
+      }
     }
+  ];
+
+  const simpleSampleJSON = {
+    "data": [
+      {
+        "name": "Machine Learning Basics",
+        "content": "Introduction to artificial intelligence and machine learning concepts, algorithms, and applications."
+      },
+      {
+        "name": "Neural Networks",
+        "content": "Deep dive into artificial neural networks, their structure, and how they process information."
+      },
+      {
+        "name": "AI Applications",
+        "content": "Real-world applications of AI in various industries including healthcare, finance, and technology."
+      }
+    ]
   };
 
   const handleProcessJSON = () => {
@@ -45,34 +172,36 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
     
     try {
       const parsed = JSON.parse(jsonInput);
+      const extractedItems = extractItemsFromJSON(parsed);
       
-      if (!parsed.output || !parsed.output.items || !Array.isArray(parsed.output.items)) {
-        throw new Error('Invalid JSON structure. Expected format: { "output": { "items": [...] } }');
+      if (extractedItems.length === 0) {
+        throw new Error('No valid items found. Please ensure your JSON contains an array of objects with text properties.');
       }
       
-      const items = parsed.output.items;
+      // Normalize all items to our standard format
+      const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
       
-      // Validate each item
-      items.forEach((item: any, index: number) => {
-        if (!item.itemNumber || !item.title || !item.description) {
-          throw new Error(`Item ${index + 1} is missing required fields (itemNumber, title, description)`);
-        }
-      });
-      
-      onDataLoad(items);
-      toast.success(`Successfully loaded ${items.length} items`);
+      onDataLoad(normalizedItems);
+      toast.success(`Successfully loaded ${normalizedItems.length} items from JSON`);
       
     } catch (error) {
-      toast.error(`JSON Error: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
+      if (error instanceof SyntaxError) {
+        toast.error('Invalid JSON syntax. Please check your JSON format.');
+      } else {
+        toast.error(`Processing Error: ${error instanceof Error ? error.message : 'Could not process JSON'}`);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadSampleData = () => {
-    setJsonInput(JSON.stringify(sampleJSON, null, 2));
-    onDataLoad(sampleJSON.output.items);
-    toast.success('Sample data loaded');
+  const loadSampleData = (complex: boolean = false) => {
+    const sample = complex ? complexSampleJSON : simpleSampleJSON;
+    setJsonInput(JSON.stringify(sample, null, 2));
+    const extractedItems = extractItemsFromJSON(sample);
+    const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
+    onDataLoad(normalizedItems);
+    toast.success(`${complex ? 'Complex' : 'Simple'} sample data loaded`);
   };
 
   return (
@@ -94,9 +223,11 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
           <div className="flex items-start gap-2 text-xs text-muted-foreground">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
-              Expected format: <code className="bg-muted px-1 rounded">{"{ \"output\": { \"items\": [...] } }"}</code>
+              <strong>Smart JSON Parser:</strong> Automatically detects items in any structure
               <br />
-              Each item needs: <code className="bg-muted px-1 rounded">itemNumber</code>, <code className="bg-muted px-1 rounded">title</code>, <code className="bg-muted px-1 rounded">description</code>
+              <strong>Supported formats:</strong> Arrays, nested objects, various property names (items, data, results, etc.)
+              <br />
+              <strong>Auto-mapping:</strong> Finds title/name and description/content fields automatically
             </div>
           </div>
         </div>
@@ -112,10 +243,17 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
           </Button>
           <Button 
             variant="outline" 
-            onClick={loadSampleData}
+            onClick={() => loadSampleData(false)}
             className="whitespace-nowrap"
           >
-            Load Sample
+            Simple Sample
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => loadSampleData(true)}
+            className="whitespace-nowrap"
+          >
+            Complex Sample
           </Button>
         </div>
       </CardContent>
