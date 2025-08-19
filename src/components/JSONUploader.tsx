@@ -210,7 +210,11 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
     
     try {
       const parsed = JSON.parse(jsonInput);
+      console.log('Parsed JSON:', parsed);
+      
       const { items: extractedItems, subject } = extractDataFromJSON(parsed);
+      console.log('Extracted items:', extractedItems);
+      console.log('Extracted subject:', subject);
       
       if (extractedItems.length === 0) {
         throw new Error('No valid items found. Please ensure your JSON contains an array of objects with text properties.');
@@ -218,6 +222,7 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
       
       // Normalize all items to our standard format
       const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
+      console.log('Normalized items:', normalizedItems);
       
       onDataLoad(normalizedItems, subject);
       toast.success(`Successfully loaded ${normalizedItems.length} items${subject ? ` for "${subject}"` : ''}`);
