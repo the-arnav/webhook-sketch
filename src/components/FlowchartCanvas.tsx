@@ -13,10 +13,12 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
 
 const nodeTypes = {
+  subject: SubjectNode,
   title: TitleNode,
   description: DescriptionNode,
 };
@@ -29,81 +31,104 @@ interface FlowchartData {
 
 interface FlowchartCanvasProps {
   data: FlowchartData[];
+  subject?: string;
 }
 
-export const FlowchartCanvas = ({ data }: FlowchartCanvasProps) => {
+export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
+
+    if (data.length === 0) return { nodes, edges };
+
+    // Create the central Subject node
+    const subjectNodeId = 'subject-node';
+    nodes.push({
+      id: subjectNodeId,
+      type: 'subject',
+      position: { x: 0, y: 0 },
+      data: { 
+        subject: subject || 'Main Topic'
+      },
+    });
 
     data.forEach((item, index) => {
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
       
-      // Calculate positions for a nice layout
-      const isRoot = item.itemNumber === 1;
-      const angle = isRoot ? 0 : (index - 1) * (Math.PI * 2) / (data.length - 1);
-      const radius = isRoot ? 0 : 400;
+      // Calculate positions in a radial layout around the subject
+      const angleStep = (Math.PI * 2) / data.length;
+      const angle = index * angleStep;
+      const radius = 350;
       
-      const titleX = isRoot ? 0 : Math.cos(angle) * radius;
-      const titleY = isRoot ? 0 : Math.sin(angle) * radius + 200;
+      const titleX = Math.cos(angle) * radius;
+      const titleY = Math.sin(angle) * radius;
       
-      // Title node
+      // Title node positioned around the subject
       nodes.push({
         id: titleNodeId,
         type: 'title',
         position: { x: titleX, y: titleY },
         data: { 
           title: item.title,
-          itemNumber: item.itemNumber,
-          isRoot
+          itemNumber: item.itemNumber
         },
       });
 
-      // Description node positioned below title
+      // Description node positioned further out from the title
+      const descRadius = 200;
+      const descX = titleX + Math.cos(angle) * descRadius;
+      const descY = titleY + Math.sin(angle) * descRadius;
+      
       nodes.push({
         id: descNodeId,
         type: 'description',
-        position: { x: titleX, y: titleY + 120 },
+        position: { x: descX, y: descY },
         data: { 
           description: item.description,
           itemNumber: item.itemNumber
         },
       });
 
-      // Edge from title to description
+      // Edge from Subject to Title
       edges.push({
-        id: `title-desc-${item.itemNumber}`,
-        source: titleNodeId,
-        target: descNodeId,
+        id: `subject-title-${item.itemNumber}`,
+        source: subjectNodeId,
+        target: titleNodeId,
         type: 'smoothstep',
         animated: true,
-        style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+        style: { 
+          stroke: 'var(--edge-color)', 
+          strokeWidth: 3,
+          filter: 'drop-shadow(0 0 10px hsl(263 70% 50% / 0.3))'
+        },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: 'var(--edge-color)',
         },
       });
 
-      // Connect non-root items to root
-      if (!isRoot && data.length > 0) {
-        edges.push({
-          id: `root-${item.itemNumber}`,
-          source: 'title-1',
-          target: titleNodeId,
-          type: 'smoothstep',
-          animated: false,
-          style: { stroke: 'var(--edge-color)', strokeWidth: 2, opacity: 0.6 },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'var(--edge-color)',
-          },
-        });
-      }
+      // Edge from Title to Description
+      edges.push({
+        id: `title-desc-${item.itemNumber}`,
+        source: titleNodeId,
+        target: descNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { 
+          stroke: 'var(--edge-color)', 
+          strokeWidth: 2,
+          opacity: 0.7
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'var(--edge-color)',
+        },
+      });
     });
 
     return { nodes, edges };
-  }, [data]);
+  }, [data, subject]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

@@ -13,10 +13,12 @@ interface FlowchartData {
 
 const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
+  const [subject, setSubject] = useState<string>('');
   const [showUploader, setShowUploader] = useState(true);
 
-  const handleDataLoad = (data: FlowchartData[]) => {
+  const handleDataLoad = (data: FlowchartData[], subjectText?: string) => {
     setFlowchartData(data);
+    setSubject(subjectText || 'Main Topic');
     setShowUploader(false);
   };
 
@@ -92,7 +94,7 @@ const Index = () => {
               <div className="absolute inset-0 bg-background/20 backdrop-blur-sm" />
             </div>
           ) : (
-            <FlowchartCanvas data={flowchartData} />
+            <FlowchartCanvas data={flowchartData} subject={subject} />
           )}
         </div>
       </main>

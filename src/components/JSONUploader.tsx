@@ -6,54 +6,74 @@ import { toast } from 'sonner';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 
 interface JSONUploaderProps {
-  onDataLoad: (data: any[]) => void;
+  onDataLoad: (data: any[], subject?: string) => void;
 }
 
-// Smart JSON parser that can extract items from various structures
-const extractItemsFromJSON = (obj: any): any[] => {
-  // If it's already an array with valid items, return it
-  if (Array.isArray(obj)) {
-    // Check if it's a direct array of items
-    const firstItem = obj[0];
-    if (firstItem && typeof firstItem === 'object' && 
-        (firstItem.title || firstItem.name || firstItem.label)) {
-      return obj;
-    }
-    
-    // If it's an array of objects, try to extract from each
-    for (const item of obj) {
-      const extracted = extractItemsFromJSON(item);
-      if (extracted.length > 0) return extracted;
-    }
-  }
-  
-  if (typeof obj !== 'object' || obj === null) return [];
-  
-  // Common property names where items might be stored
-  const commonKeys = [
-    'items', 'data', 'results', 'nodes', 'entries', 'content', 
-    'list', 'array', 'collection', 'records', 'elements'
-  ];
-  
-  // First, check direct common keys
-  for (const key of commonKeys) {
-    if (obj[key] && Array.isArray(obj[key])) {
-      const items = obj[key];
-      if (items.length > 0 && typeof items[0] === 'object') {
-        return items;
+// Smart JSON parser that can extract items and subject from various structures
+const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
+  let subject: string | undefined;
+  let items: any[] = [];
+
+  // Extract subject/title first
+  if (typeof obj === 'object' && obj !== null) {
+    const subjectKeys = ['subject', 'title', 'topic', 'name', 'heading', 'theme'];
+    for (const key of subjectKeys) {
+      if (obj[key] && typeof obj[key] === 'string') {
+        subject = obj[key];
+        break;
       }
     }
   }
-  
-  // If not found directly, search recursively through all properties
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'object' && value !== null) {
-      const extracted = extractItemsFromJSON(value);
-      if (extracted.length > 0) return extracted;
+
+  // Extract items using existing logic
+  const extractItems = (searchObj: any): any[] => {
+    // If it's already an array with valid items, return it
+    if (Array.isArray(searchObj)) {
+      // Check if it's a direct array of items
+      const firstItem = searchObj[0];
+      if (firstItem && typeof firstItem === 'object' && 
+          (firstItem.title || firstItem.name || firstItem.label)) {
+        return searchObj;
+      }
+      
+      // If it's an array of objects, try to extract from each
+      for (const item of searchObj) {
+        const extracted = extractItems(item);
+        if (extracted.length > 0) return extracted;
+      }
     }
-  }
-  
-  return [];
+    
+    if (typeof searchObj !== 'object' || searchObj === null) return [];
+    
+    // Common property names where items might be stored
+    const commonKeys = [
+      'items', 'data', 'results', 'nodes', 'entries', 'content', 
+      'list', 'array', 'collection', 'records', 'elements'
+    ];
+    
+    // First, check direct common keys
+    for (const key of commonKeys) {
+      if (searchObj[key] && Array.isArray(searchObj[key])) {
+        const items = searchObj[key];
+        if (items.length > 0 && typeof items[0] === 'object') {
+          return items;
+        }
+      }
+    }
+    
+    // If not found directly, search recursively through all properties
+    for (const [key, value] of Object.entries(searchObj)) {
+      if (typeof value === 'object' && value !== null) {
+        const extracted = extractItems(value);
+        if (extracted.length > 0) return extracted;
+      }
+    }
+    
+    return [];
+  };
+
+  items = extractItems(obj);
+  return { items, subject };
 };
 
 // Convert any object to standardized format
@@ -126,24 +146,28 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
   const [jsonInput, setJsonInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const complexSampleJSON = [
-    {
-      "output": {
-        "items": [
-          {
-            "itemNumber": 1,
-            "title": "The Big Bang Theory",
-            "description": "The Big Bang is the scientific theory that explains the origin and evolution of the universe. It suggests that the universe began as an infinitely hot and dense point and expanded rapidly around 13.8 billion years ago."
-          },
-          {
-            "itemNumber": 2,
-            "title": "Evidence for the Big Bang",
-            "description": "The Big Bang theory is supported by a wide range of observational evidence, including the cosmic microwave background radiation, the abundance of light elements, and the large-scale structure of the universe."
-          }
-        ]
-      }
+  const complexSampleJSON = {
+    "subject": "Black Holes Explanation",
+    "output": {
+      "items": [
+        {
+          "itemNumber": 1,
+          "title": "What is a Black Hole?",
+          "description": "A black hole is a region in space where gravity is so strong that nothing, not even light, can escape it."
+        },
+        {
+          "itemNumber": 2,
+          "title": "Formation of Black Holes",
+          "description": "Black holes form when massive stars collapse under their own gravity at the end of their life cycles."
+        },
+        {
+          "itemNumber": 3,
+          "title": "Types of Black Holes",
+          "description": "There are stellar-mass black holes, supermassive black holes, and intermediate black holes, each with different origins and scales."
+        }
+      ]
     }
-  ];
+  };
 
   const simpleSampleJSON = {
     "data": [
@@ -172,7 +196,7 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
     
     try {
       const parsed = JSON.parse(jsonInput);
-      const extractedItems = extractItemsFromJSON(parsed);
+      const { items: extractedItems, subject } = extractDataFromJSON(parsed);
       
       if (extractedItems.length === 0) {
         throw new Error('No valid items found. Please ensure your JSON contains an array of objects with text properties.');
@@ -181,8 +205,8 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
       // Normalize all items to our standard format
       const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
       
-      onDataLoad(normalizedItems);
-      toast.success(`Successfully loaded ${normalizedItems.length} items from JSON`);
+      onDataLoad(normalizedItems, subject);
+      toast.success(`Successfully loaded ${normalizedItems.length} items${subject ? ` for "${subject}"` : ''}`);
       
     } catch (error) {
       if (error instanceof SyntaxError) {
@@ -198,10 +222,10 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
   const loadSampleData = (complex: boolean = false) => {
     const sample = complex ? complexSampleJSON : simpleSampleJSON;
     setJsonInput(JSON.stringify(sample, null, 2));
-    const extractedItems = extractItemsFromJSON(sample);
+    const { items: extractedItems, subject } = extractDataFromJSON(sample);
     const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
-    onDataLoad(normalizedItems);
-    toast.success(`${complex ? 'Complex' : 'Simple'} sample data loaded`);
+    onDataLoad(normalizedItems, subject);
+    toast.success(`${complex ? 'Complex' : 'Simple'} sample data loaded${subject ? ` - "${subject}"` : ''}`);
   };
 
   return (
