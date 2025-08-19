@@ -38,23 +38,36 @@ const Index = () => {
           </div>
           
           {flowchartData.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setShowUploader(!showUploader)}
-              className="flex items-center gap-2"
-            >
-              {showUploader ? (
-                <>
-                  <ChevronRight className="w-4 h-4" />
-                  View Canvas
-                </>
-              ) : (
-                <>
-                  <ChevronLeft className="w-4 h-4" />
-                  Edit Data
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFlowchartData([]);
+                  setSubject('');
+                  setShowUploader(true);
+                }}
+                className="flex items-center gap-2"
+              >
+                Clear Canvas
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowUploader(!showUploader)}
+                className="flex items-center gap-2"
+              >
+                {showUploader ? (
+                  <>
+                    <ChevronRight className="w-4 h-4" />
+                    View Canvas
+                  </>
+                ) : (
+                  <>
+                    <ChevronLeft className="w-4 h-4" />
+                    Edit Data
+                  </>
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </header>
