@@ -11,25 +11,28 @@ interface JSONUploaderProps {
 
 // Smart JSON parser that can extract items and subject from various structures
 const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
+  console.log('Processing JSON:', obj);
+  
   let subject: string | undefined;
   let items: any[] = [];
 
-  // Handle array input first - if it's an array, extract from first element or treat as items
+  // Handle array input first - your exact format
   if (Array.isArray(obj)) {
-    // If array of objects with output structure, extract from first
-    if (obj.length > 0 && obj[0].output) {
-      return extractDataFromJSON(obj[0]);
-    }
-    // If array of items, check if they look like our target items
-    const firstItem = obj[0];
-    if (firstItem && typeof firstItem === 'object' && 
-        (firstItem.title || firstItem.name || firstItem.label)) {
-      return { items: obj, subject: undefined };
+    console.log('Input is array, processing first element');
+    if (obj.length > 0) {
+      const firstElement = obj[0];
+      if (firstElement.output && firstElement.output.items) {
+        console.log('Found output.items structure');
+        items = firstElement.output.items;
+        subject = firstElement.subject || undefined;
+        return { items, subject };
+      }
     }
   }
 
-  // Extract subject/title first
+  // Handle direct object input
   if (typeof obj === 'object' && obj !== null) {
+    // Extract subject/title first
     const subjectKeys = ['subject', 'title', 'topic', 'name', 'heading', 'theme'];
     for (const key of subjectKeys) {
       if (obj[key] && typeof obj[key] === 'string') {
@@ -37,57 +40,35 @@ const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
         break;
       }
     }
-  }
 
-  // Extract items using existing logic
-  const extractItems = (searchObj: any): any[] => {
-    // If it's already an array with valid items, return it
-    if (Array.isArray(searchObj)) {
-      // Check if it's a direct array of items
-      const firstItem = searchObj[0];
-      if (firstItem && typeof firstItem === 'object' && 
-          (firstItem.title || firstItem.name || firstItem.label || firstItem.itemNumber)) {
-        return searchObj;
-      }
-      
-      // If it's an array of objects, try to extract from each
-      for (const item of searchObj) {
-        const extracted = extractItems(item);
-        if (extracted.length > 0) return extracted;
-      }
+    // Direct output.items structure
+    if (obj.output && obj.output.items && Array.isArray(obj.output.items)) {
+      console.log('Found direct output.items');
+      items = obj.output.items;
+      return { items, subject };
     }
-    
-    if (typeof searchObj !== 'object' || searchObj === null) return [];
-    
+
     // Common property names where items might be stored
     const commonKeys = [
       'items', 'data', 'results', 'nodes', 'entries', 'content', 
       'list', 'array', 'collection', 'records', 'elements'
     ];
     
-    // First, check direct common keys
+    // Check direct common keys
     for (const key of commonKeys) {
-      if (searchObj[key] && Array.isArray(searchObj[key])) {
-        const items = searchObj[key];
-        if (items.length > 0 && typeof items[0] === 'object') {
-          return items;
+      if (obj[key] && Array.isArray(obj[key])) {
+        const foundItems = obj[key];
+        if (foundItems.length > 0 && typeof foundItems[0] === 'object') {
+          console.log(`Found items in ${key}`);
+          items = foundItems;
+          return { items, subject };
         }
       }
     }
-    
-    // If not found directly, search recursively through all properties
-    for (const [key, value] of Object.entries(searchObj)) {
-      if (typeof value === 'object' && value !== null) {
-        const extracted = extractItems(value);
-        if (extracted.length > 0) return extracted;
-      }
-    }
-    
-    return [];
-  };
+  }
 
-  items = extractItems(obj);
-  return { items, subject };
+  console.log('No items found, returning empty');
+  return { items: [], subject };
 };
 
 // Convert any object to standardized format
