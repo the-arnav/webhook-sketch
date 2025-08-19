@@ -41,7 +41,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
 
     if (data.length === 0) return { nodes, edges };
 
-    // Create the central Subject node
+    // Create the main Subject node at the top center
     const subjectNodeId = 'subject-node';
     nodes.push({
       id: subjectNodeId,
@@ -52,38 +52,37 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       },
     });
 
+    // Calculate layout for hierarchical structure
+    const titleRowY = 250; // Distance below subject
+    const descRowY = 500;  // Distance below titles
+    const nodeSpacing = 300; // Horizontal spacing between nodes
+    
+    // Center the nodes horizontally
+    const startX = -(data.length - 1) * nodeSpacing / 2;
+
     data.forEach((item, index) => {
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
       
-      // Calculate positions in a radial layout around the subject
-      const angleStep = (Math.PI * 2) / data.length;
-      const angle = index * angleStep;
-      const radius = 350;
+      // Position title nodes in a horizontal row
+      const titleX = startX + index * nodeSpacing;
       
-      const titleX = Math.cos(angle) * radius;
-      const titleY = Math.sin(angle) * radius;
-      
-      // Title node positioned around the subject
+      // Title node in middle row
       nodes.push({
         id: titleNodeId,
         type: 'title',
-        position: { x: titleX, y: titleY },
+        position: { x: titleX, y: titleRowY },
         data: { 
           title: item.title,
           itemNumber: item.itemNumber
         },
       });
 
-      // Description node positioned further out from the title
-      const descRadius = 200;
-      const descX = titleX + Math.cos(angle) * descRadius;
-      const descY = titleY + Math.sin(angle) * descRadius;
-      
+      // Description node directly below its title
       nodes.push({
         id: descNodeId,
         type: 'description',
-        position: { x: descX, y: descY },
+        position: { x: titleX, y: descRowY },
         data: { 
           description: item.description,
           itemNumber: item.itemNumber
@@ -98,13 +97,13 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         type: 'smoothstep',
         animated: true,
         style: { 
-          stroke: 'var(--edge-primary)', 
+          stroke: 'hsl(270, 80%, 60%)', 
           strokeWidth: 3,
           filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: 'var(--edge-primary)',
+          color: 'hsl(270, 80%, 60%)',
           width: 8,
           height: 8,
         },
@@ -118,14 +117,14 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         type: 'smoothstep',
         animated: false,
         style: { 
-          stroke: 'var(--edge-secondary)', 
+          stroke: 'hsl(260, 70%, 50%)', 
           strokeWidth: 2,
           opacity: 0.8,
           filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: 'var(--edge-secondary)',
+          color: 'hsl(260, 70%, 50%)',
           width: 6,
           height: 6,
         },
