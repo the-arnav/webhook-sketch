@@ -9,7 +9,7 @@ interface JSONUploaderProps {
   onDataLoad: (data: any[], subject?: string) => void;
 }
 
-const WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook-test/b919abb2-222c-4793-958f-83fa6b3e729c';
+const WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook/b919abb2-222c-4793-958f-83fa6b3e729c';
 
 // Smart JSON parser that can extract items and subject from various structures
 const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
