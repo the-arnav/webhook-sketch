@@ -3,11 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Send, Brain, AlertCircle, Loader2 } from 'lucide-react';
 
 interface JSONUploaderProps {
   onDataLoad: (data: any[], subject?: string) => void;
 }
+
+const WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook-test/b919abb2-222c-4793-958f-83fa6b3e729c';
 
 // Smart JSON parser that can extract items and subject from various structures
 const extractDataFromJSON = (obj: any): { items: any[], subject?: string } => {
@@ -138,146 +140,125 @@ const normalizeItem = (item: any, index: number): any => {
 };
 
 export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
-  const [jsonInput, setJsonInput] = useState('');
+  const [promptInput, setPromptInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const complexSampleJSON = {
-    "subject": "Black Holes Explanation",
-    "output": {
-      "items": [
-        {
-          "itemNumber": 1,
-          "title": "What is a Black Hole?",
-          "description": "A black hole is a region in space where gravity is so strong that nothing, not even light, can escape it."
-        },
-        {
-          "itemNumber": 2,
-          "title": "Formation of Black Holes",
-          "description": "Black holes form when massive stars collapse under their own gravity at the end of their life cycles."
-        },
-        {
-          "itemNumber": 3,
-          "title": "Types of Black Holes",
-          "description": "There are stellar-mass black holes, supermassive black holes, and intermediate black holes, each with different origins and scales."
-        }
-      ]
-    }
-  };
-
-  const simpleSampleJSON = {
-    "data": [
-      {
-        "name": "Machine Learning Basics",
-        "content": "Introduction to artificial intelligence and machine learning concepts, algorithms, and applications."
-      },
-      {
-        "name": "Neural Networks",
-        "content": "Deep dive into artificial neural networks, their structure, and how they process information."
-      },
-      {
-        "name": "AI Applications",
-        "content": "Real-world applications of AI in various industries including healthcare, finance, and technology."
-      }
-    ]
-  };
-
-  const handleProcessJSON = () => {
-    if (!jsonInput.trim()) {
-      toast.error('Please enter JSON data');
+  const handleSendPrompt = async () => {
+    if (!promptInput.trim()) {
+      toast.error('Please enter what you want to learn');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      const parsed = JSON.parse(jsonInput);
-      console.log('Parsed JSON:', parsed);
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: promptInput.trim()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Webhook response:', data);
       
-      const { items: extractedItems, subject } = extractDataFromJSON(parsed);
+      const { items: extractedItems, subject } = extractDataFromJSON(data);
       console.log('Extracted items:', extractedItems);
       console.log('Extracted subject:', subject);
       
       if (extractedItems.length === 0) {
-        throw new Error('No valid items found. Please ensure your JSON contains an array of objects with text properties.');
+        throw new Error('No valid items found in the response. Please try a different topic.');
       }
       
       // Normalize all items to our standard format
       const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
       console.log('Normalized items:', normalizedItems);
       
-      onDataLoad(normalizedItems, subject);
-      toast.success(`Successfully loaded ${normalizedItems.length} items${subject ? ` for "${subject}"` : ''}`);
+      onDataLoad(normalizedItems, subject || promptInput);
+      toast.success(`Successfully generated flowchart for "${subject || promptInput}" with ${normalizedItems.length} items`);
+      setPromptInput(''); // Clear the input after success
       
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        toast.error('Invalid JSON syntax. Please check your JSON format.');
-      } else {
-        toast.error(`Processing Error: ${error instanceof Error ? error.message : 'Could not process JSON'}`);
-      }
+      console.error('Error sending prompt to webhook:', error);
+      toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate flowchart'}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadSampleData = (complex: boolean = false) => {
-    const sample = complex ? complexSampleJSON : simpleSampleJSON;
-    setJsonInput(JSON.stringify(sample, null, 2));
-    const { items: extractedItems, subject } = extractDataFromJSON(sample);
-    const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
-    onDataLoad(normalizedItems, subject);
-    toast.success(`${complex ? 'Complex' : 'Simple'} sample data loaded${subject ? ` - "${subject}"` : ''}`);
+  const loadSamplePrompt = () => {
+    setPromptInput('Explain how photosynthesis works');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendPrompt();
+    }
   };
 
   return (
     <Card className="glass-panel">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5" />
-          JSON Data Input
+          <Brain className="w-5 h-5" />
+          AI Learning Assistant
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Textarea
-            placeholder="Paste your JSON data here..."
-            value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            className="min-h-[200px] font-mono text-sm"
+            placeholder="What would you like to learn about? (e.g., 'How does machine learning work?', 'Explain quantum physics basics', 'Solar system planets')"
+            value={promptInput}
+            onChange={(e) => setPromptInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="min-h-[100px] resize-none"
+            disabled={isLoading}
           />
           <div className="flex items-start gap-2 text-xs text-muted-foreground">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
-              <strong>Smart JSON Parser:</strong> Automatically detects items in any structure
+              <strong>AI-Powered Learning:</strong> Enter any topic you want to understand
               <br />
-              <strong>Supported formats:</strong> Arrays, nested objects, various property names (items, data, results, etc.)
+              <strong>Smart Processing:</strong> AI will break down complex topics into digestible flowchart steps
               <br />
-              <strong>Auto-mapping:</strong> Finds title/name and description/content fields automatically
+              <strong>Tip:</strong> Press Enter to send, or Shift+Enter for new line
             </div>
           </div>
         </div>
         
         <div className="flex gap-2">
           <Button 
-            onClick={handleProcessJSON} 
-            disabled={isLoading}
+            onClick={handleSendPrompt} 
+            disabled={isLoading || !promptInput.trim()}
             className="flex-1"
           >
-            <Upload className="w-4 h-4 mr-2" />
-            {isLoading ? 'Processing...' : 'Generate Flowchart'}
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mr-2" />
+                Generate Flowchart
+              </>
+            )}
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => loadSampleData(false)}
+            onClick={loadSamplePrompt}
+            disabled={isLoading}
             className="whitespace-nowrap"
           >
-            Simple Sample
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => loadSampleData(true)}
-            className="whitespace-nowrap"
-          >
-            Complex Sample
+            Try Sample
           </Button>
         </div>
       </CardContent>
