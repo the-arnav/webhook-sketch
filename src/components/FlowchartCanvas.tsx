@@ -52,10 +52,10 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       },
     });
 
-    // Calculate layout for hierarchical structure
-    const titleRowY = 250; // Distance below subject
-    const descRowY = 500;  // Distance below titles
-    const nodeSpacing = 300; // Horizontal spacing between nodes
+    // Calculate layout for hierarchical structure with proper spacing
+    const titleRowY = 350; // Increased distance below subject
+    const descRowY = 650;  // Increased distance below titles
+    const nodeSpacing = 400; // Increased horizontal spacing between nodes
     
     // Center the nodes horizontally
     const startX = -(data.length - 1) * nodeSpacing / 2;
@@ -158,7 +158,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -185,7 +185,12 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
           }}
           maskColor="rgba(0, 0, 0, 0.8)"
         />
-        <Background color="#4a5568" gap={20} size={1} className="opacity-30" />
+        <Background 
+          color="#64748b" 
+          gap={20} 
+          size={2}
+          className="opacity-40"
+        />
       </ReactFlow>
     </div>
   );
