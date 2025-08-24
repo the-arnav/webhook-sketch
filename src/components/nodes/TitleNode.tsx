@@ -11,25 +11,11 @@ export const TitleNode = memo((props: NodeProps) => {
 
   return (
     <div className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale">
-      {/* Enhanced handles with better styling */}
+      {/* Top handle for receiving connections from subject */}
       <Handle 
         type="target" 
         position={Position.Top} 
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
-      />
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
-      />
-      <Handle 
-        type="target" 
-        position={Position.Right} 
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
-      />
-      <Handle 
-        type="target" 
-        position={Position.Bottom} 
+        id="top"
         className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
       />
       
@@ -48,22 +34,11 @@ export const TitleNode = memo((props: NodeProps) => {
         </h3>
       </div>
       
-      {/* Enhanced source handles */}
+      {/* Bottom handle for connecting to descriptions */}
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
-      />
-      <Handle 
-        type="source" 
-        position={Position.Left} 
-        id="left-source"
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
-      />
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        id="right-source"
+        id="bottom"
         className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
       />
     </div>

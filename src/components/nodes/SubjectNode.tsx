@@ -7,25 +7,11 @@ export const SubjectNode = memo((props: NodeProps) => {
 
   return (
     <div className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in">
-      {/* Enhanced handle styling */}
-      <Handle 
-        type="source" 
-        position={Position.Top} 
-        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
-      />
+      {/* Bottom handle for connecting to titles */}
       <Handle 
         type="source" 
         position={Position.Bottom} 
-        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
-      />
-      <Handle 
-        type="source" 
-        position={Position.Left} 
-        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
-      />
-      <Handle 
-        type="source" 
-        position={Position.Right} 
+        id="bottom"
         className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
       />
       

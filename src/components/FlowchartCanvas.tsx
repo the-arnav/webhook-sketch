@@ -89,12 +89,14 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         },
       });
 
-      // Edge from Subject to Title
+      // Edge from Subject to Title (from bottom of subject to top of title)
       edges.push({
         id: `subject-title-${item.itemNumber}`,
         source: subjectNodeId,
+        sourceHandle: 'bottom',
         target: titleNodeId,
-        type: 'smoothstep',
+        targetHandle: 'top',
+        type: 'straight',
         animated: true,
         style: { 
           stroke: 'hsl(270, 80%, 60%)', 
@@ -109,12 +111,14 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         },
       });
 
-      // Edge from Title to Description
+      // Edge from Title to Description (from bottom of title to top of description)
       edges.push({
         id: `title-desc-${item.itemNumber}`,
         source: titleNodeId,
+        sourceHandle: 'bottom',
         target: descNodeId,
-        type: 'smoothstep',
+        targetHandle: 'top',
+        type: 'straight',
         animated: false,
         style: { 
           stroke: 'hsl(260, 70%, 50%)', 
@@ -167,8 +171,8 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         minZoom={0.3}
         maxZoom={1.5}
         defaultEdgeOptions={{
-          type: 'smoothstep',
-          animated: true,
+          type: 'straight',
+          animated: false,
         }}
       >
         <Controls className="glass-panel" />
@@ -181,7 +185,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
           }}
           maskColor="rgba(0, 0, 0, 0.8)"
         />
-        <Background color="#333333" gap={25} size={1} className="opacity-10" />
+        <Background color="#4a5568" gap={20} size={1} className="opacity-30" />
       </ReactFlow>
     </div>
   );

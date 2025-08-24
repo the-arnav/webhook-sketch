@@ -11,20 +11,11 @@ export const DescriptionNode = memo((props: NodeProps) => {
 
   return (
     <div className="canvas-node-description rounded-xl p-5 min-w-[260px] max-w-[300px] animate-fade-in">
-      {/* Enhanced handles */}
+      {/* Top handle for receiving connections from titles */}
       <Handle 
         type="target" 
         position={Position.Top} 
-        className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
-      />
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
-      />
-      <Handle 
-        type="target" 
-        position={Position.Right} 
+        id="top"
         className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
       />
       
