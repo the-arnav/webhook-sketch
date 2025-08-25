@@ -17,6 +17,7 @@ import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
 
+
 const nodeTypes = {
   subject: SubjectNode,
   title: TitleNode,
@@ -126,7 +127,56 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
           newState[nodeId] = normalizedItems;
           return newState;
         });
+
+        // Find the clicked node to position new nodes
+        const clickedNode = nodes.find(n => n.id === nodeId);
+        if (!clickedNode) {
+          console.error('Clicked node not found:', nodeId);
+          return;
+        }
+
+        const newNodes: Node[] = [];
+        const newEdges: Edge[] = [];
+
+        const parentNodePosition = clickedNode.position;
+        const parentNodeWidth = clickedNode.width || 150; // Default width if not available
+        const parentNodeHeight = clickedNode.height || 50; // Default height if not available
+
+        const startX = parentNodePosition.x;
+          const startY = parentNodePosition.y + parentNodeHeight + 100; // Position below parent
+
+          normalizedItems.forEach((item, index) => {
+            const newNodeId = `${nodeId}-elaborate-${item.itemNumber}`;
+            const newNode: Node = {
+              id: newNodeId,
+              type: 'description',
+              position: { x: startX, y: startY + index * 100 }, // Stack vertically
+            data: {
+              description: item.description,
+              itemNumber: item.itemNumber,
+              title: item.title,
+              onElaborate: handleElaborate,
+              isLoading: loadingNodes.has(newNodeId)
+            },
+          };
+          newNodes.push(newNode);
+
+          const newEdge: Edge = {
+            id: `edge-${nodeId}-${newNodeId}`,
+            source: nodeId,
+            target: newNodeId,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed },
+          };
+          newEdges.push(newEdge);
+        });
+
+        setNodes((prevNodes) => [...prevNodes, ...newNodes]);
+        setEdges((prevEdges) => [...prevEdges, ...newEdges]);
+
         console.log('Updated expandedNodes state:', nodeId, normalizedItems);
+        console.log('Added new nodes:', newNodes);
+        console.log('Added new edges:', newEdges);
       } else {
         console.warn('No items found in response');
       }
@@ -155,7 +205,7 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
       id: subjectNodeId,
       type: 'subject',
       position: { x: 0, y: 0 },
-      data: { 
+      data: {
         subject: subject || 'Main Topic'
       },
     });
@@ -164,23 +214,23 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
     const titleRowY = 350; // Increased distance below subject
     const descRowY = 650;  // Increased distance below titles
     const nodeSpacing = 400; // Increased horizontal spacing between nodes
-    
+
     // Center the nodes horizontally
     const startX = -(data.length - 1) * nodeSpacing / 2;
 
     data.forEach((item, index) => {
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
-      
+
       // Position title nodes in a horizontal row
       const titleX = startX + index * nodeSpacing;
-      
+
       // Title node in middle row
       nodes.push({
         id: titleNodeId,
         type: 'title',
         position: { x: titleX, y: titleRowY },
-        data: { 
+        data: {
           title: item.title,
           itemNumber: item.itemNumber,
           onElaborate: handleElaborate,
@@ -193,7 +243,7 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
         id: descNodeId,
         type: 'description',
         position: { x: titleX, y: descRowY },
-        data: { 
+        data: {
           description: item.description,
           itemNumber: item.itemNumber,
           onElaborate: handleElaborate,
@@ -201,189 +251,62 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
         },
       });
 
-      // Edge from Subject to Title (from bottom of subject to top of title)
+      // Connect subject to title node
       edges.push({
-        id: `subject-title-${item.itemNumber}`,
+        id: `edge-subject-${titleNodeId}`,
         source: subjectNodeId,
-        sourceHandle: 'bottom',
         target: titleNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: true,
-        style: { 
-          stroke: 'hsl(270, 80%, 60%)', 
-          strokeWidth: 3,
-          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(270, 80%, 60%)',
-          width: 8,
-          height: 8,
-        },
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed },
       });
 
-      // Edge from Title to Description (from bottom of title to top of description)
+      // Connect title node to description node
       edges.push({
-        id: `title-desc-${item.itemNumber}`,
+        id: `edge-${titleNodeId}-${descNodeId}`,
         source: titleNodeId,
-        sourceHandle: 'bottom',
         target: descNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(260, 70%, 50%)', 
-          strokeWidth: 2,
-          opacity: 0.8,
-          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(260, 70%, 50%)',
-          width: 6,
-          height: 6,
-        },
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed },
       });
-    });
 
-    // Add expanded nodes
-    Object.entries(expandedNodes).forEach(([parentNodeId, expandedItems]) => {
-      const parentNode = nodes.find(n => n.id === parentNodeId);
-      if (!parentNode) return;
-      
-      // Calculate starting position for expanded nodes
-      const startY = parentNode.position.y + 200;
-      const startX = parentNode.position.x;
-      
-      // Create a title node for each expanded item
-      expandedItems.forEach((expandedItem, index) => {
-        // Calculate positions with proper spacing
-        const expandedY = startY + (index * 200);
-        
-        // Create expanded title node
-        const expandedTitleId = `${parentNodeId}-expanded-title-${index}`;
-        nodes.push({
-          id: expandedTitleId,
-          type: 'title',
-          position: { x: startX, y: expandedY },
-          data: {
-            title: expandedItem.title,
-            itemNumber: expandedItem.itemNumber,
-            onElaborate: handleElaborate,
-            isLoading: loadingNodes.has(expandedTitleId)
-          },
-        });
-        
-        // Create expanded description node
-        const expandedDescId = `${parentNodeId}-expanded-desc-${index}`;
-        nodes.push({
-          id: expandedDescId,
-          type: 'description',
-          position: { x: startX, y: expandedY + 100 },
-          data: {
-            description: expandedItem.description,
-            itemNumber: expandedItem.itemNumber,
-            onElaborate: handleElaborate,
-            isLoading: loadingNodes.has(expandedDescId)
-          },
-        });
-        
-        // Connect parent to expanded title
+      // If there are multiple title nodes, connect them sequentially
+      if (index > 0) {
+        const prevTitleNodeId = `title-${data[index - 1].itemNumber}`;
         edges.push({
-          id: `${parentNodeId}-to-${expandedTitleId}`,
-          source: parentNodeId,
-          sourceHandle: 'bottom',
-          target: expandedTitleId,
-          targetHandle: 'top',
-          type: 'straight',
-          animated: true,
-          style: { 
-            stroke: 'hsl(290, 70%, 50%)', 
-            strokeWidth: 2.5,
-            opacity: 0.8,
-            filter: 'drop-shadow(0 0 12px hsl(290 70% 50% / 0.4))'
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'hsl(290, 70%, 50%)',
-            width: 6,
-            height: 6,
-          },
+          id: `edge-${prevTitleNodeId}-${titleNodeId}`,
+          source: prevTitleNodeId,
+          target: titleNodeId,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed },
         });
-        
-        // Connect expanded title to expanded description
-        edges.push({
-          id: `${expandedTitleId}-to-${expandedDescId}`,
-          source: expandedTitleId,
-          sourceHandle: 'bottom',
-          target: expandedDescId,
-          targetHandle: 'top',
-          type: 'straight',
-          animated: false,
-          style: { 
-            stroke: 'hsl(300, 60%, 45%)', 
-            strokeWidth: 2,
-            opacity: 0.7,
-            filter: 'drop-shadow(0 0 8px hsl(300 60% 45% / 0.3))'
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'hsl(300, 60%, 45%)',
-            width: 5,
-            height: 5,
-          },
-        });
-      });
+      }
     });
 
     return { nodes, edges };
-  }, [data, subject, expandedNodes, handleElaborate, loadingNodes]);
+  }, [data, subject, loadingNodes, handleElaborate]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
-  
-  // If external ref is provided, sync it with our internal ref
+
   useEffect(() => {
-    if (reactFlowInstanceRef) {
-      reactFlowInstanceRef.current = reactFlowInstance.current;
-    }
-  }, [reactFlowInstance.current, reactFlowInstanceRef]);
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    [setEdges],
   );
-  
-  // Fit view when expanded nodes are added
-  useEffect(() => {
-    // Short delay to ensure nodes are rendered before fitting view
-    const timer = setTimeout(() => {
-      if (reactFlowInstance.current) {
-        // @ts-ignore - reactFlowInstance.current.fitView exists but TypeScript doesn't recognize it
-        reactFlowInstance.current.fitView({
-          padding: 0.4,
-          minZoom: 0.2,
-          maxZoom: 1.5,
-          duration: 800
-        });
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [expandedNodes]);
 
-  if (data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <div className="text-center">
-          <div className="text-6xl mb-4">📊</div>
-          <p className="text-lg">Upload JSON data to visualize your flowchart</p>
-        </div>
-      </div>
-    );
-  }
+
+
+
+
+  const onNodeClickInternal = useCallback((event: React.MouseEvent, node: Node) => {
+    if (onNodeClick) {
+      onNodeClick(node.id, node.data.title || node.data.subject, node.data.description);
+    }
+  }, [onNodeClick]);
 
   return (
     <div className="h-full w-full">
@@ -394,7 +317,10 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        onNodeClick={onNodeClickInternal}
         fitView
+        className="dark-flow"
+        ref={reactFlowInstanceRef}
         fitViewOptions={{ 
           padding: 0.2,
           minZoom: 0.1, 
@@ -409,19 +335,10 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
         }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
         proOptions={{ hideAttribution: true }}
-        className="dark-flow"
         onInit={(instance) => {
           reactFlowInstance.current = instance;
           if (reactFlowInstanceRef) {
             reactFlowInstanceRef.current = instance;
-          }
-        }}
-        onNodeClick={(_, node) => {
-          if (onNodeClick) {
-            const nodeData = node.data;
-            const title = nodeData.title || '';
-            const description = nodeData.description || '';
-            onNodeClick(node.id, title, description);
           }
         }}
       >
