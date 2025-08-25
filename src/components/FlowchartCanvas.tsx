@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Node,
@@ -32,9 +32,11 @@ interface FlowchartData {
 interface FlowchartCanvasProps {
   data: FlowchartData[];
   subject?: string;
+  onNodeClick?: (nodeId: string, title: string, description: string) => void;
+  reactFlowInstanceRef?: React.MutableRefObject<ReactFlowInstance | null>;
 }
 
-export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
+export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceRef }: FlowchartCanvasProps) => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, any[]>>({});
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   
@@ -68,7 +70,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       const result = await response.json();
       console.log('Webhook response:', result);
       
-      // Extract items from response
+      // Extract items from response with more robust handling
       let items: any[] = [];
       if (result.output && result.output.items) {
         items = result.output.items;
@@ -78,24 +80,53 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         items = result.items;
       } else if (result.data) {
         items = result.data;
+      } else if (result.output) {
+        // Try to extract from output if it's an object
+        if (Array.isArray(result.output)) {
+          items = result.output;
+        } else if (typeof result.output === 'object') {
+          // Convert object to array if needed
+          const outputKeys = Object.keys(result.output).filter(key => key !== 'items');
+          if (outputKeys.length > 0) {
+            items = outputKeys.map(key => ({
+              title: key,
+              description: result.output[key]
+            }));
+          }
+        }
       }
 
       console.log('Extracted items:', items);
 
-      // Normalize items
-      const normalizedItems = items.map((item, index) => ({
-        itemNumber: index + 1,
-        title: item.title || item.name || item.topic || `Item ${index + 1}`,
-        description: item.description || item.detail || item.content || item.text || 'No description available'
-      }));
+      // Normalize items with more robust handling
+      const normalizedItems = items.map((item, index) => {
+        // Handle if item is a string
+        if (typeof item === 'string') {
+          return {
+            itemNumber: index + 1,
+            title: `Point ${index + 1}`,
+            description: item
+          };
+        }
+        
+        // Handle if item is an object
+        return {
+          itemNumber: index + 1,
+          title: item.title || item.name || item.topic || item.key || `Point ${index + 1}`,
+          description: item.description || item.detail || item.content || item.text || item.value || 'No description available'
+        };
+      });
 
       console.log('Normalized items:', normalizedItems);
 
       if (normalizedItems.length > 0) {
-        setExpandedNodes(prev => ({
-          ...prev,
-          [nodeId]: normalizedItems
-        }));
+        // Update the expanded nodes state
+        setExpandedNodes(prev => {
+          const newState = { ...prev };
+          newState[nodeId] = normalizedItems;
+          return newState;
+        });
+        console.log('Updated expandedNodes state:', nodeId, normalizedItems);
       } else {
         console.warn('No items found in response');
       }
@@ -220,42 +251,87 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     Object.entries(expandedNodes).forEach(([parentNodeId, expandedItems]) => {
       const parentNode = nodes.find(n => n.id === parentNodeId);
       if (!parentNode) return;
-
+      
+      // Calculate starting position for expanded nodes
+      const startY = parentNode.position.y + 200;
+      const startX = parentNode.position.x;
+      
+      // Create a title node for each expanded item
       expandedItems.forEach((expandedItem, index) => {
-        const expandedNodeId = `${parentNodeId}-expanded-${index}`;
-        const expandedY = parentNode.position.y + 200 + (index * 150);
-
+        // Calculate positions with proper spacing
+        const expandedY = startY + (index * 200);
+        
+        // Create expanded title node
+        const expandedTitleId = `${parentNodeId}-expanded-title-${index}`;
         nodes.push({
-          id: expandedNodeId,
+          id: expandedTitleId,
+          type: 'title',
+          position: { x: startX, y: expandedY },
+          data: {
+            title: expandedItem.title,
+            itemNumber: expandedItem.itemNumber,
+            onElaborate: handleElaborate,
+            isLoading: loadingNodes.has(expandedTitleId)
+          },
+        });
+        
+        // Create expanded description node
+        const expandedDescId = `${parentNodeId}-expanded-desc-${index}`;
+        nodes.push({
+          id: expandedDescId,
           type: 'description',
-          position: { x: parentNode.position.x, y: expandedY },
+          position: { x: startX, y: expandedY + 100 },
           data: {
             description: expandedItem.description,
             itemNumber: expandedItem.itemNumber,
-            onElaborate: handleElaborate
+            onElaborate: handleElaborate,
+            isLoading: loadingNodes.has(expandedDescId)
           },
         });
-
-        // Connect expanded node to parent
+        
+        // Connect parent to expanded title
         edges.push({
-          id: `${parentNodeId}-expanded-${index}`,
+          id: `${parentNodeId}-to-${expandedTitleId}`,
           source: parentNodeId,
           sourceHandle: 'bottom',
-          target: expandedNodeId,
+          target: expandedTitleId,
+          targetHandle: 'top',
+          type: 'straight',
+          animated: true,
+          style: { 
+            stroke: 'hsl(290, 70%, 50%)', 
+            strokeWidth: 2.5,
+            opacity: 0.8,
+            filter: 'drop-shadow(0 0 12px hsl(290 70% 50% / 0.4))'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'hsl(290, 70%, 50%)',
+            width: 6,
+            height: 6,
+          },
+        });
+        
+        // Connect expanded title to expanded description
+        edges.push({
+          id: `${expandedTitleId}-to-${expandedDescId}`,
+          source: expandedTitleId,
+          sourceHandle: 'bottom',
+          target: expandedDescId,
           targetHandle: 'top',
           type: 'straight',
           animated: false,
           style: { 
-            stroke: 'hsl(280, 60%, 45%)', 
+            stroke: 'hsl(300, 60%, 45%)', 
             strokeWidth: 2,
             opacity: 0.7,
-            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
+            filter: 'drop-shadow(0 0 8px hsl(300 60% 45% / 0.3))'
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: 'hsl(280, 60%, 45%)',
-            width: 6,
-            height: 6,
+            color: 'hsl(300, 60%, 45%)',
+            width: 5,
+            height: 5,
           },
         });
       });
@@ -266,11 +342,37 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+  
+  // If external ref is provided, sync it with our internal ref
+  useEffect(() => {
+    if (reactFlowInstanceRef) {
+      reactFlowInstanceRef.current = reactFlowInstance.current;
+    }
+  }, [reactFlowInstance.current, reactFlowInstanceRef]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+  
+  // Fit view when expanded nodes are added
+  useEffect(() => {
+    // Short delay to ensure nodes are rendered before fitting view
+    const timer = setTimeout(() => {
+      if (reactFlowInstance.current) {
+        // @ts-ignore - reactFlowInstance.current.fitView exists but TypeScript doesn't recognize it
+        reactFlowInstance.current.fitView({
+          padding: 0.4,
+          minZoom: 0.2,
+          maxZoom: 1.5,
+          duration: 800
+        });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [expandedNodes]);
 
   if (data.length === 0) {
     return (
@@ -284,7 +386,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
   }
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="w-full h-full" style={{ backgroundColor: 'var(--canvas-bg)' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -293,29 +395,61 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3, minZoom: 0.3, maxZoom: 1.5 }}
-        minZoom={0.3}
+        fitViewOptions={{ 
+          padding: 0.4, 
+          minZoom: 0.2, 
+          maxZoom: 1.5,
+          duration: 800 // Smooth animation when fitting view
+        }}
+        minZoom={0.2}
         maxZoom={1.5}
         defaultEdgeOptions={{
           type: 'straight',
           animated: false,
         }}
+        className="canvas-flow"
+        onInit={(instance) => {
+          reactFlowInstance.current = instance;
+          if (reactFlowInstanceRef) {
+            reactFlowInstanceRef.current = instance;
+          }
+        }}
+        onNodeClick={(_, node) => {
+          if (onNodeClick) {
+            const nodeData = node.data;
+            const title = nodeData.title || '';
+            const description = nodeData.description || '';
+            onNodeClick(node.id, title, description);
+          }
+        }}
       >
-        <Controls className="glass-panel" />
+        <div 
+          className="absolute inset-0 pointer-events-none z-0" 
+          style={{ backgroundImage: 'var(--canvas-overlay)' }}
+        />
+        <Controls 
+          className="glass-panel absolute bottom-4 left-4" 
+          showZoom={true}
+          showFitView={true}
+          showInteractive={false}
+        />
         <MiniMap 
-          className="glass-panel"
+          className="glass-panel absolute bottom-4 right-4"
+          style={{ width: 150, height: 100 }} /* Smaller size */
+          zoomable={true}
           nodeColor={(node) => {
-            if (node.type === 'subject') return '#a855f7';
-            if (node.type === 'title') return '#8b5cf6';
-            return '#6366f1';
+            if (node.type === 'subject') return 'hsl(260, 85%, 65%)';
+            if (node.type === 'title') return 'hsl(270, 75%, 60%)';
+            return 'hsl(280, 70%, 55%)';
           }}
           maskColor="rgba(0, 0, 0, 0.8)"
         />
         <Background 
-          color="#64748b" 
-          gap={20} 
-          size={2}
-          className="opacity-40"
+          color="hsl(260, 30%, 50%)" 
+          gap={24} 
+          size={1.5}
+          className="opacity-20"
+          variant="dots"
         />
       </ReactFlow>
     </div>

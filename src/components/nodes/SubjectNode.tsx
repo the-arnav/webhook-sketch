@@ -6,13 +6,14 @@ export const SubjectNode = memo((props: NodeProps) => {
   const data = props.data as unknown as { subject: string };
 
   return (
-    <div className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in">
+    <div className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in shadow-xl">
       {/* Bottom handle for connecting to titles */}
       <Handle 
         type="source" 
         position={Position.Bottom} 
         id="bottom"
-        className="!bg-purple-400 !border-purple-300 !w-4 !h-4 !shadow-lg"
+        className="!bg-purple-500 !border-purple-300 !w-4 !h-4 !shadow-lg !border-2"
+        style={{ boxShadow: '0 0 10px hsl(270, 90%, 70%, 0.7)' }}
       />
       
       <div className="text-center space-y-4 relative z-10">
