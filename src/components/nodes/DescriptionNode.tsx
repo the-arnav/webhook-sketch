@@ -1,13 +1,22 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown } from 'lucide-react';
 
 interface DescriptionNodeData {
   description: string;
   itemNumber: number;
+  onElaborate?: (nodeId: string, content: string) => void;
 }
 
 export const DescriptionNode = memo((props: NodeProps) => {
   const data = props.data as unknown as DescriptionNodeData;
+
+  const handleElaborate = () => {
+    if (data.onElaborate) {
+      data.onElaborate(props.id, data.description);
+    }
+  };
 
   return (
     <div className="canvas-node-description rounded-xl p-5 min-w-[260px] max-w-[300px] animate-fade-in">
@@ -30,7 +39,25 @@ export const DescriptionNode = memo((props: NodeProps) => {
         <p className="text-sm text-slate-200 leading-relaxed tracking-wide">
           {data.description}
         </p>
+
+        <Button
+          onClick={handleElaborate}
+          size="sm"
+          variant="ghost"
+          className="w-full text-xs text-slate-400 hover:text-white hover:bg-slate-500/20 border border-slate-400/30"
+        >
+          <ChevronDown className="w-3 h-3 mr-1" />
+          Elaborate More
+        </Button>
       </div>
+
+      {/* Bottom handle for connecting to elaborated nodes */}
+      <Handle 
+        type="source" 
+        position={Position.Bottom} 
+        id="bottom"
+        className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
+      />
     </div>
   );
 });

@@ -1,13 +1,22 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown } from 'lucide-react';
 
 interface TitleNodeData {
   title: string;
   itemNumber: number;
+  onElaborate?: (nodeId: string, content: string) => void;
 }
 
 export const TitleNode = memo((props: NodeProps) => {
   const data = props.data as unknown as TitleNodeData;
+
+  const handleElaborate = () => {
+    if (data.onElaborate) {
+      data.onElaborate(props.id, data.title);
+    }
+  };
 
   return (
     <div className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale">
@@ -32,6 +41,16 @@ export const TitleNode = memo((props: NodeProps) => {
         <h3 className="text-xl font-bold text-white leading-tight tracking-wide drop-shadow-md">
           {data.title}
         </h3>
+
+        <Button
+          onClick={handleElaborate}
+          size="sm"
+          variant="ghost"
+          className="w-full text-xs text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-400/30"
+        >
+          <ChevronDown className="w-3 h-3 mr-1" />
+          Elaborate More
+        </Button>
       </div>
       
       {/* Bottom handle for connecting to descriptions */}

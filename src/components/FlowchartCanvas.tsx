@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Node,
@@ -35,6 +35,50 @@ interface FlowchartCanvasProps {
 }
 
 export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, any[]>>({});
+  
+  const handleElaborate = async (nodeId: string, content: string) => {
+    try {
+      const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch elaboration');
+      }
+
+      const result = await response.json();
+      
+      // Extract items from response (similar to JSONUploader logic)
+      let items: any[] = [];
+      if (result.output && result.output.items) {
+        items = result.output.items;
+      } else if (Array.isArray(result)) {
+        items = result;
+      } else if (result.items) {
+        items = result.items;
+      }
+
+      // Normalize items
+      const normalizedItems = items.map((item, index) => ({
+        itemNumber: index + 1,
+        title: item.title || item.name || item.topic || `Item ${index + 1}`,
+        description: item.description || item.detail || item.content || 'No description available'
+      }));
+
+      setExpandedNodes(prev => ({
+        ...prev,
+        [nodeId]: normalizedItems
+      }));
+    } catch (error) {
+      console.error('Error elaborating node:', error);
+    }
+  };
+
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -74,7 +118,8 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         position: { x: titleX, y: titleRowY },
         data: { 
           title: item.title,
-          itemNumber: item.itemNumber
+          itemNumber: item.itemNumber,
+          onElaborate: handleElaborate
         },
       });
 
@@ -85,7 +130,8 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         position: { x: titleX, y: descRowY },
         data: { 
           description: item.description,
-          itemNumber: item.itemNumber
+          itemNumber: item.itemNumber,
+          onElaborate: handleElaborate
         },
       });
 
@@ -135,8 +181,53 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       });
     });
 
+    // Add expanded nodes
+    Object.entries(expandedNodes).forEach(([parentNodeId, expandedItems]) => {
+      const parentNode = nodes.find(n => n.id === parentNodeId);
+      if (!parentNode) return;
+
+      expandedItems.forEach((expandedItem, index) => {
+        const expandedNodeId = `${parentNodeId}-expanded-${index}`;
+        const expandedY = parentNode.position.y + 200 + (index * 150);
+
+        nodes.push({
+          id: expandedNodeId,
+          type: 'description',
+          position: { x: parentNode.position.x, y: expandedY },
+          data: {
+            description: expandedItem.description,
+            itemNumber: expandedItem.itemNumber,
+            onElaborate: handleElaborate
+          },
+        });
+
+        // Connect expanded node to parent
+        edges.push({
+          id: `${parentNodeId}-expanded-${index}`,
+          source: parentNodeId,
+          sourceHandle: 'bottom',
+          target: expandedNodeId,
+          targetHandle: 'top',
+          type: 'straight',
+          animated: false,
+          style: { 
+            stroke: 'hsl(280, 60%, 45%)', 
+            strokeWidth: 2,
+            opacity: 0.7,
+            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'hsl(280, 60%, 45%)',
+            width: 6,
+            height: 6,
+          },
+        });
+      });
+    });
+
     return { nodes, edges };
-  }, [data, subject]);
+  }, [data, subject, expandedNodes, handleElaborate]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
