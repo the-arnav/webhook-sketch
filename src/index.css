@@ -4,6 +4,49 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+.dark,
+:root.dark {
+  color-scheme: dark !important;
+  --background: hsl(240 10% 3.9%) !important;
+  --foreground: hsl(0 0% 98%) !important;
+  --card: hsl(240 10% 3.9%) !important;
+  --card-foreground: hsl(0 0% 98%) !important;
+  --popover: hsl(240 10% 3.9%) !important;
+  --popover-foreground: hsl(0 0% 98%) !important;
+  --primary: hsl(260 85% 65%) !important;
+  --primary-foreground: hsl(0 0% 98%) !important;
+  --secondary: hsl(240 4% 16%) !important;
+  --secondary-foreground: hsl(0 0% 98%) !important;
+  --muted: hsl(240 4% 16%) !important;
+  --muted-foreground: hsl(240 5% 65%) !important;
+  --accent: hsl(240 4% 16%) !important;
+  --accent-foreground: hsl(0 0% 98%) !important;
+  --destructive: hsl(0 84% 60%) !important;
+  --destructive-foreground: hsl(0 0% 98%) !important;
+  --border: hsl(240 5% 15%) !important;
+  --input: hsl(240 5% 15%) !important;
+  --ring: hsl(260 85% 65%) !important;
+  --glass-bg: rgba(15, 15, 20, 0.75) !important;
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
+  --canvas-bg: hsl(240 10% 3.9%) !important;
+}
+
+html, body {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+/* Force dark mode for all themes */
+.light,
+:root.light,
+html.light,
+body.light {
+  color-scheme: dark !important;
+  --background: hsl(240 10% 3.9%) !important;
+  --foreground: hsl(0 0% 98%) !important;
+}
+
 @layer components {
   .glass-panel {
     @apply bg-opacity-85 backdrop-blur-md border border-transparent relative overflow-hidden;
@@ -90,6 +133,33 @@
   .react-flow__minimap {
     @apply !border !border-purple-500/30 !rounded-md !shadow-lg;
     background-color: rgba(30, 20, 40, 0.7) !important;
+  }
+  
+  /* Dark flow styling */
+  .dark-flow {
+  @apply bg-background;
+}
+
+/* Force dark mode for ReactFlow components */
+.react-flow,
+.react-flow__pane,
+.react-flow__viewport,
+.react-flow__container,
+.react-flow__node,
+.react-flow__edge,
+.react-flow__edge-path,
+.react-flow__controls,
+.react-flow__minimap {
+  filter: none !important;
+  background-color: transparent !important;
+  color: var(--foreground) !important;
+}
+  
+  /* Bottom chatbox styling */
+  .bottom-chatbox {
+    @apply fixed bottom-0 left-0 right-0 p-4 z-10;
+    backdrop-filter: blur(8px);
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
   }
   
   .glass-panel::before {

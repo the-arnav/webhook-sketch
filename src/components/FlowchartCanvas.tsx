@@ -386,7 +386,7 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
   }
 
   return (
-    <div className="w-full h-full" style={{ backgroundColor: 'var(--canvas-bg)' }}>
+    <div className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -396,18 +396,20 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ 
-          padding: 0.4, 
-          minZoom: 0.2, 
+          padding: 0.2,
+          minZoom: 0.1, 
           maxZoom: 1.5,
           duration: 800 // Smooth animation when fitting view
         }}
-        minZoom={0.2}
+        minZoom={0.1}
         maxZoom={1.5}
         defaultEdgeOptions={{
           type: 'straight',
           animated: false,
         }}
-        className="canvas-flow"
+        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+        proOptions={{ hideAttribution: true }}
+        className="dark-flow"
         onInit={(instance) => {
           reactFlowInstance.current = instance;
           if (reactFlowInstanceRef) {
@@ -423,32 +425,25 @@ export const FlowchartCanvas = ({ data, subject, onNodeClick, reactFlowInstanceR
           }
         }}
       >
-        <div 
-          className="absolute inset-0 pointer-events-none z-0" 
-          style={{ backgroundImage: 'var(--canvas-overlay)' }}
-        />
         <Controls 
-          className="glass-panel absolute bottom-4 left-4" 
-          showZoom={true}
-          showFitView={true}
+          position="top-right" 
           showInteractive={false}
         />
         <MiniMap 
-          className="glass-panel absolute bottom-4 right-4"
-          style={{ width: 150, height: 100 }} /* Smaller size */
-          zoomable={true}
+          position="top-left"
+          nodeStrokeWidth={3}
+          zoomable
+          pannable
+          nodeBorderRadius={2}
           nodeColor={(node) => {
             if (node.type === 'subject') return 'hsl(260, 85%, 65%)';
             if (node.type === 'title') return 'hsl(270, 75%, 60%)';
             return 'hsl(280, 70%, 55%)';
           }}
-          maskColor="rgba(0, 0, 0, 0.8)"
         />
         <Background 
-          color="hsl(260, 30%, 50%)" 
-          gap={24} 
-          size={1.5}
-          className="opacity-20"
+          color="#444" 
+          gap={16} 
           variant="dots"
         />
       </ReactFlow>

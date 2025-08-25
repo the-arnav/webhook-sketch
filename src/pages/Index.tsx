@@ -2,14 +2,9 @@ import { useState, useRef } from 'react';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
 import { JSONUploader } from '@/components/JSONUploader';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { LeftSidebar } from '@/components/ui/LeftSidebar';
-import { TopNavbar } from '@/components/ui/TopNavbar';
-import { RightPanel } from '@/components/ui/RightPanel';
 import { CanvasToolbar } from '@/components/ui/CanvasToolbar';
 import { PromptCard } from '@/components/ui/PromptCard';
 import { ReactFlowInstance } from '@xyflow/react';
-import heroImage from '@/assets/hero-bg.jpg';
 
 interface FlowchartData {
   itemNumber: number;
@@ -26,9 +21,7 @@ interface NodeData {
 const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
   const [subject, setSubject] = useState<string>('');
-  const [showUploader, setShowUploader] = useState(true);
-  const [showLeftSidebar, setShowLeftSidebar] = useState(false);
-  const [showRightPanel, setShowRightPanel] = useState(false);
+  const [showUploader, setShowUploader] = useState(false);
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
@@ -44,7 +37,6 @@ const Index = () => {
       title,
       description
     });
-    setShowRightPanel(true);
   };
   
   const handlePromptSubmit = (prompt: string) => {
@@ -61,7 +53,6 @@ const Index = () => {
   
   const handleElaborateFromPanel = (nodeId: string) => {
     // This would trigger the elaborate function in FlowchartCanvas
-    setShowRightPanel(false);
   };
 
   const handleClearCanvas = () => {
@@ -71,47 +62,27 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <TopNavbar 
-        onClearCanvas={handleClearCanvas} 
-        showUploader={showUploader} 
-        setShowUploader={setShowUploader} 
-        hasData={flowchartData.length > 0}
-        onToggleSidebar={() => setShowLeftSidebar(!showLeftSidebar)}
-      />
-
-      {/* Left Sidebar */}
-      <LeftSidebar 
-        isOpen={showLeftSidebar} 
-        onToggle={() => setShowLeftSidebar(!showLeftSidebar)} 
-        onSelectPrompt={handlePromptSubmit}
-        onSelectMap={(mapId) => console.log('Selected map:', mapId)}
-      />
+    <div className="min-h-screen bg-background dark">
+      {/* App Header - Minimal */}
+      <div className="fixed top-0 left-0 right-0 z-20 h-14 flex items-center justify-between px-4 bg-background/80 backdrop-blur-md border-b border-border/40">
+        <div className="flex items-center">
+          <h1 className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">Webhook Sketch</h1>
+        </div>
+        <div>
+          <Button variant="ghost" size="sm" onClick={handleClearCanvas} className="text-muted-foreground hover:text-foreground">
+            Clear Canvas
+          </Button>
+        </div>
+      </div>
       
-      {/* Right Panel */}
-      <RightPanel 
-        isOpen={showRightPanel} 
-        onClose={() => setShowRightPanel(false)} 
-        nodeData={selectedNode}
-        onElaborate={handleElaborateFromPanel}
-      />
-      
-      {/* Main Content */}
-      <main className="flex-1 pt-16">
-        <div className="container h-full flex">
-          {/* Conditional Sidebar */}
-          {showUploader && (
-            <div className="w-96 glass-panel rounded-lg p-6 mr-6 h-[calc(100vh-7rem)] overflow-auto">
-              <h2 className="text-xl font-semibold mb-4 premium-text">JSON Configuration</h2>
-              <JSONUploader onDataLoad={handleDataLoad} />
-            </div>
-          )}
-          
-          {/* Main Canvas Area */}
-          <div className="flex-1 glass-panel rounded-lg overflow-hidden h-[calc(100vh-7rem)]">
+      {/* Main Content - Full Screen Canvas */}
+      <main className="pt-14 h-[calc(100vh-4rem)]">
+        <div className="h-full relative">
+          {/* Canvas Area */}
+          <div className="w-full h-full">
             {flowchartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center relative">
-                <PromptCard onSubmit={handlePromptSubmit} />
+              <div className="h-full flex items-center justify-center">
+                {/* Empty state - just show the canvas */}
               </div>
             ) : (
               <>
@@ -127,6 +98,11 @@ const Index = () => {
                 />
               </>
             )}
+          </div>
+          
+          {/* Bottom Chat Box */}
+          <div className="bottom-chatbox">
+            <PromptCard onSubmit={handlePromptSubmit} />
           </div>
         </div>
       </main>
