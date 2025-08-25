@@ -36,27 +36,39 @@ interface FlowchartCanvasProps {
 
 export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, any[]>>({});
+  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   
-  const handleElaborate = async (nodeId: string, content: string) => {
+  const handleElaborate = useCallback(async (nodeId: string, content: string) => {
+    // Prevent multiple requests for the same node
+    if (loadingNodes.has(nodeId) || expandedNodes[nodeId]) {
+      return;
+    }
+
+    setLoadingNodes(prev => new Set([...prev, nodeId]));
+
     try {
+      console.log('Sending to webhook:', { nodeId, content });
+      
       const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
         method: 'POST',
-        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ prompt: content }),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
       const result = await response.json();
       console.log('Webhook response:', result);
       
-      // Extract items from response (similar to JSONUploader logic)
+      // Extract items from response
       let items: any[] = [];
       if (result.output && result.output.items) {
         items = result.output.items;
@@ -64,23 +76,41 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         items = result;
       } else if (result.items) {
         items = result.items;
+      } else if (result.data) {
+        items = result.data;
       }
+
+      console.log('Extracted items:', items);
 
       // Normalize items
       const normalizedItems = items.map((item, index) => ({
         itemNumber: index + 1,
         title: item.title || item.name || item.topic || `Item ${index + 1}`,
-        description: item.description || item.detail || item.content || 'No description available'
+        description: item.description || item.detail || item.content || item.text || 'No description available'
       }));
 
-      setExpandedNodes(prev => ({
-        ...prev,
-        [nodeId]: normalizedItems
-      }));
+      console.log('Normalized items:', normalizedItems);
+
+      if (normalizedItems.length > 0) {
+        setExpandedNodes(prev => ({
+          ...prev,
+          [nodeId]: normalizedItems
+        }));
+      } else {
+        console.warn('No items found in response');
+      }
     } catch (error) {
       console.error('Error elaborating node:', error);
+      // Show user-friendly error
+      alert('Failed to elaborate. Please try again.');
+    } finally {
+      setLoadingNodes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(nodeId);
+        return newSet;
+      });
     }
-  };
+  }, [loadingNodes, expandedNodes]);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
@@ -122,7 +152,8 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         data: { 
           title: item.title,
           itemNumber: item.itemNumber,
-          onElaborate: handleElaborate
+          onElaborate: handleElaborate,
+          isLoading: loadingNodes.has(titleNodeId)
         },
       });
 
@@ -134,7 +165,8 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
         data: { 
           description: item.description,
           itemNumber: item.itemNumber,
-          onElaborate: handleElaborate
+          onElaborate: handleElaborate,
+          isLoading: loadingNodes.has(descNodeId)
         },
       });
 
@@ -230,7 +262,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     });
 
     return { nodes, edges };
-  }, [data, subject, expandedNodes, handleElaborate]);
+  }, [data, subject, expandedNodes, handleElaborate, loadingNodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

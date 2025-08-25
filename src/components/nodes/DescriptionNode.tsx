@@ -7,6 +7,7 @@ interface DescriptionNodeData {
   description: string;
   itemNumber: number;
   onElaborate?: (nodeId: string, content: string) => void;
+  isLoading?: boolean;
 }
 
 export const DescriptionNode = memo((props: NodeProps) => {
@@ -44,10 +45,11 @@ export const DescriptionNode = memo((props: NodeProps) => {
           onClick={handleElaborate}
           size="sm"
           variant="ghost"
-          className="w-full text-xs text-slate-400 hover:text-white hover:bg-slate-500/20 border border-slate-400/30"
+          disabled={data.isLoading}
+          className="w-full text-xs text-slate-400 hover:text-white hover:bg-slate-500/20 border border-slate-400/30 disabled:opacity-50"
         >
           <ChevronDown className="w-3 h-3 mr-1" />
-          Elaborate More
+          {data.isLoading ? 'Loading...' : 'Elaborate More'}
         </Button>
       </div>
 
