@@ -41,17 +41,20 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     try {
       const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify({ prompt: content }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch elaboration');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('Webhook response:', result);
       
       // Extract items from response (similar to JSONUploader logic)
       let items: any[] = [];
