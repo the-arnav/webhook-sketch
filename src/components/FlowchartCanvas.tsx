@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Node,
@@ -160,6 +160,11 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     }));
   }, [setNodes, loadingNodes]);
 
+  // Ensure node buttons are wired and loading states reflected
+  useEffect(() => {
+    attachHandlers();
+  }, [attachHandlers, baseNodes, loadingNodes]);
+
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     // Prefer the specified shape: response[0].output.items
     const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
@@ -173,17 +178,28 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       if (!parent) return prevNodes;
 
       const existingIds = new Set(prevNodes.map(n => n.id));
-      const spacingX = 280;
-      const baseY = parent.position.y + 200;
+
+      // Determine how many children already exist for this parent to stagger rows
+      const existingChildrenCount = prevNodes.filter(n => n.id.startsWith(`${parentNodeId}-`)).length;
+
+      // Layout parameters
+      const horizontalSpacing = 300; // distance between siblings
+      const verticalSpacing = 500;   // distance from parent per row
+      const rowIndex = Math.max(0, Math.floor(existingChildrenCount / Math.max(1, items.length)));
+      const baseY = parent.position.y + verticalSpacing + rowIndex * verticalSpacing;
+
+      const totalWidth = (items.length - 1) * horizontalSpacing;
+      const startX = parent.position.x - totalWidth / 2;
 
       const newNodes: Node[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
         const id = `${parentNodeId}-${itemNumber}`;
-        const x = parent.position.x + (idx - (items.length - 1) / 2) * spacingX;
+        const x = startX + idx * horizontalSpacing;
+        const y = baseY + (idx % 2 === 0 ? 0 : 20); // slight stagger to avoid visual overlap
         return {
           id,
           type: 'description',
-          position: { x, y: baseY + idx * 20 },
+          position: { x, y },
           data: {
             description: item.description ?? 'No description',
             itemNumber,
@@ -268,160 +284,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     }
   }, [loadingNodes, handleElaborateResponse]);
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-
-    if (data.length === 0) return { nodes, edges };
-
-    // Create the main Subject node at the top center
-    const subjectNodeId = 'subject-node';
-    nodes.push({
-      id: subjectNodeId,
-      type: 'subject',
-      position: { x: 0, y: 0 },
-      data: { 
-        subject: subject || 'Main Topic'
-      },
-    });
-
-    // Calculate layout for hierarchical structure with proper spacing
-    const titleRowY = 350; // Increased distance below subject
-    const descRowY = 650;  // Increased distance below titles
-    const nodeSpacing = 400; // Increased horizontal spacing between nodes
-    
-    // Center the nodes horizontally
-    const startX = -(data.length - 1) * nodeSpacing / 2;
-
-    data.forEach((item, index) => {
-      const titleNodeId = `title-${item.itemNumber}`;
-      const descNodeId = `desc-${item.itemNumber}`;
-      
-      // Position title nodes in a horizontal row
-      const titleX = startX + index * nodeSpacing;
-      
-      // Title node in middle row
-      nodes.push({
-        id: titleNodeId,
-        type: 'title',
-        position: { x: titleX, y: titleRowY },
-        data: { 
-          title: item.title,
-          itemNumber: item.itemNumber,
-          onElaborate: handleElaborate,
-          isLoading: loadingNodes.has(titleNodeId)
-        },
-      });
-
-      // Description node directly below its title
-      nodes.push({
-        id: descNodeId,
-        type: 'description',
-        position: { x: titleX, y: descRowY },
-        data: { 
-          description: item.description,
-          itemNumber: item.itemNumber,
-          onElaborate: handleElaborate,
-          isLoading: loadingNodes.has(descNodeId)
-        },
-      });
-
-      // Edge from Subject to Title (from bottom of subject to top of title)
-      edges.push({
-        id: `subject-title-${item.itemNumber}`,
-        source: subjectNodeId,
-        sourceHandle: 'bottom',
-        target: titleNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: true,
-        style: { 
-          stroke: 'hsl(270, 80%, 60%)', 
-          strokeWidth: 3,
-          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(270, 80%, 60%)',
-          width: 8,
-          height: 8,
-        },
-      });
-
-      // Edge from Title to Description (from bottom of title to top of description)
-      edges.push({
-        id: `title-desc-${item.itemNumber}`,
-        source: titleNodeId,
-        sourceHandle: 'bottom',
-        target: descNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(260, 70%, 50%)', 
-          strokeWidth: 2,
-          opacity: 0.8,
-          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(260, 70%, 50%)',
-          width: 6,
-          height: 6,
-        },
-      });
-    });
-
-    // Add expanded nodes
-    Object.entries(expandedNodes).forEach(([parentNodeId, expandedItems]) => {
-      const parentNode = nodes.find(n => n.id === parentNodeId);
-      if (!parentNode) return;
-
-      expandedItems.forEach((expandedItem, index) => {
-        const expandedNodeId = `${parentNodeId}-expanded-${index}`;
-        const expandedY = parentNode.position.y + 200 + (index * 150);
-
-        nodes.push({
-          id: expandedNodeId,
-          type: 'description',
-          position: { x: parentNode.position.x, y: expandedY },
-          data: {
-            description: expandedItem.description,
-            itemNumber: expandedItem.itemNumber,
-            onElaborate: handleElaborate
-          },
-        });
-
-        // Connect expanded node to parent
-        edges.push({
-          id: `${parentNodeId}-expanded-${index}`,
-          source: parentNodeId,
-          sourceHandle: 'bottom',
-          target: expandedNodeId,
-          targetHandle: 'top',
-          type: 'straight',
-          animated: false,
-          style: { 
-            stroke: 'hsl(280, 60%, 45%)', 
-            strokeWidth: 2,
-            opacity: 0.7,
-            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'hsl(280, 60%, 45%)',
-            width: 6,
-            height: 6,
-          },
-        });
-      });
-    });
-
-    return { nodes, edges };
-  }, [data, subject, expandedNodes, handleElaborate, loadingNodes]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // Removed duplicate nodes/edges calculation and state hooks that caused redeclaration
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
