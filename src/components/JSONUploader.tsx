@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Send, Brain, Loader2, Lightbulb } from 'lucide-react';
-import { useMindMapStore } from '@/stores/mindMapStore';
+import { Send, Brain, AlertCircle, Loader2 } from 'lucide-react';
+
+interface JSONUploaderProps {
+  onDataLoad: (data: any[], subject?: string) => void;
+}
 
 const WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook/b919abb2-222c-4793-958f-83fa6b3e729c';
 
@@ -136,17 +139,9 @@ const normalizeItem = (item: any, index: number): any => {
   };
 };
 
-const EXAMPLE_PROMPTS = [
-  "How does photosynthesis work?",
-  "Explain machine learning basics",
-  "Steps to start a business",
-  "How to learn programming",
-  "The solar system explained"
-];
-
-export const PromptInput = () => {
+export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
   const [promptInput, setPromptInput] = useState('');
-  const { setInitialData, isLoading, setLoading } = useMindMapStore();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSendPrompt = async () => {
     if (!promptInput.trim()) {
@@ -154,7 +149,7 @@ export const PromptInput = () => {
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     
     try {
       const response = await fetch(WEBHOOK_URL, {
@@ -186,20 +181,20 @@ export const PromptInput = () => {
       const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
       console.log('Normalized items:', normalizedItems);
       
-      setInitialData(normalizedItems, subject || promptInput);
-      toast.success(`Successfully generated mind map for "${subject || promptInput}" with ${normalizedItems.length} items`);
+      onDataLoad(normalizedItems, subject || promptInput);
+      toast.success(`Successfully generated flowchart for "${subject || promptInput}" with ${normalizedItems.length} items`);
       setPromptInput(''); // Clear the input after success
       
     } catch (error) {
       console.error('Error sending prompt to webhook:', error);
-      toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate mind map'}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate flowchart'}`);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleExampleClick = (example: string) => {
-    setPromptInput(example);
+  const loadSamplePrompt = () => {
+    setPromptInput('Explain how photosynthesis works');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -210,78 +205,63 @@ export const PromptInput = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <Card className="glass-panel">
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-3 text-2xl">
-            <Brain className="w-8 h-8 text-primary" />
-            AI Mind Map Generator
-          </CardTitle>
-          <p className="text-muted-foreground">
-            Transform any topic into an interactive mind map that you can explore and expand
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
-            <Textarea
-              placeholder="What would you like to learn about? Try 'How does photosynthesis work?' or 'Explain quantum physics basics'"
-              value={promptInput}
-              onChange={(e) => setPromptInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="min-h-[120px] resize-none text-base"
-              disabled={isLoading}
-            />
-            
-            <Button 
-              onClick={handleSendPrompt} 
-              disabled={isLoading || !promptInput.trim()}
-              className="w-full h-12 text-base"
-              size="lg"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Generating Mind Map...
-                </>
-              ) : (
-                <>
-                  <Send className="w-5 h-5 mr-2" />
-                  Generate Mind Map
-                </>
-              )}
-            </Button>
+    <Card className="glass-panel">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="w-5 h-5" />
+          AI Learning Assistant
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Textarea
+            placeholder="What would you like to learn about? (e.g., 'How does machine learning work?', 'Explain quantum physics basics', 'Solar system planets')"
+            value={promptInput}
+            onChange={(e) => setPromptInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="min-h-[100px] resize-none"
+            disabled={isLoading}
+          />
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>AI-Powered Learning:</strong> Enter any topic you want to understand
+              <br />
+              <strong>Smart Processing:</strong> AI will break down complex topics into digestible flowchart steps
+              <br />
+              <strong>Tip:</strong> Press Enter to send, or Shift+Enter for new line
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass-panel">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            Example Topics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {EXAMPLE_PROMPTS.map((example, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                onClick={() => handleExampleClick(example)}
-                disabled={isLoading}
-                className="text-left justify-start h-auto py-3 px-4"
-              >
-                {example}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="text-center text-sm text-muted-foreground">
-        <p>💡 <strong>Tip:</strong> Press Enter to generate, or click any example above</p>
-        <p>🔗 <strong>Interactive:</strong> Click "Elaborate More" on any node to explore deeper</p>
-      </div>
-    </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleSendPrompt} 
+            disabled={isLoading || !promptInput.trim()}
+            className="flex-1"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mr-2" />
+                Generate Flowchart
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={loadSamplePrompt}
+            disabled={isLoading}
+            className="whitespace-nowrap"
+          >
+            Try Sample
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

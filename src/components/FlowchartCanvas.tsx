@@ -1,279 +1,268 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Node,
   Edge,
-  useNodesState,
-  useEdgesState,
   addEdge,
   Connection,
+  useNodesState,
+  useEdgesState,
   Controls,
   MiniMap,
   Background,
-  MarkerType
+  MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
-import { useMindMapStore, FlowchartNode } from '@/stores/mindMapStore';
-import { toast } from 'sonner';
 
-// Define node types
 const nodeTypes = {
-  'subject-node': SubjectNode,
-  'title-node': TitleNode,
-  'description-node': DescriptionNode,
+  subject: SubjectNode,
+  title: TitleNode,
+  description: DescriptionNode,
 };
 
-const ELABORATE_WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a';
+interface FlowchartData {
+  itemNumber: number;
+  title: string;
+  description: string;
+}
 
-export const FlowchartCanvas = () => {
-  const { nodes: storeNodes, subject, addChildNodes, expandedNodes, setNodeExpanded } = useMindMapStore();
+interface FlowchartCanvasProps {
+  data: FlowchartData[];
+  subject?: string;
+}
+
+export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, any[]>>({});
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
-
-  // Handle elaborate functionality
+  
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
-    console.log('🚀 Starting elaboration for node:', nodeId, 'with content:', content);
-    
+    // Prevent multiple requests for the same node
+    if (loadingNodes.has(nodeId) || expandedNodes[nodeId]) {
+      return;
+    }
+
     setLoadingNodes(prev => new Set([...prev, nodeId]));
-    setNodeExpanded(nodeId, true);
-    
+
     try {
-      const payload = {
-        prompt: `Elaborate on this topic: ${content}`,
-        nodeId: nodeId,
-        content: content
-      };
+      console.log('Sending to webhook:', { nodeId, content });
       
-      console.log('📤 Sending payload to webhook:', payload);
-      
-      const response = await fetch(ELABORATE_WEBHOOK_URL, {
+      const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ prompt: content }),
       });
-      
-      console.log('📥 Webhook response status:', response.status);
-      
+
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Webhook error response:', errorText);
-        throw new Error(`Webhook request failed with status ${response.status}: ${errorText}`);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
+
+      const result = await response.json();
+      console.log('Webhook response:', result);
       
-      const responseData = await response.json();
-      console.log('✅ Webhook response data:', responseData);
-      
-      // Process the response and extract items
-      let extractedItems: any[] = [];
-      
-      if (Array.isArray(responseData)) {
-        extractedItems = responseData;
-      } else if (responseData.items && Array.isArray(responseData.items)) {
-        extractedItems = responseData.items;
-      } else if (responseData.output && responseData.output.items && Array.isArray(responseData.output.items)) {
-        extractedItems = responseData.output.items;
-      } else if (responseData.data && Array.isArray(responseData.data)) {
-        extractedItems = responseData.data;
+      // Extract items from response
+      let items: any[] = [];
+      if (result.output && result.output.items) {
+        items = result.output.items;
+      } else if (Array.isArray(result)) {
+        items = result;
+      } else if (result.items) {
+        items = result.items;
+      } else if (result.data) {
+        items = result.data;
       }
-      
-      console.log('📋 Extracted items:', extractedItems);
-      
-      if (extractedItems.length > 0) {
-        // Normalize the items to match our FlowchartNode interface
-        const normalizedItems: FlowchartNode[] = extractedItems.map((item, index) => ({
-          id: '', // Will be set by the store
-          itemNumber: index + 1,
-          title: item.title || item.name || item.label || `Sub-item ${index + 1}`,
-          description: item.description || item.content || item.text || String(item),
-          parentId: nodeId
+
+      console.log('Extracted items:', items);
+
+      // Normalize items
+      const normalizedItems = items.map((item, index) => ({
+        itemNumber: index + 1,
+        title: item.title || item.name || item.topic || `Item ${index + 1}`,
+        description: item.description || item.detail || item.content || item.text || 'No description available'
+      }));
+
+      console.log('Normalized items:', normalizedItems);
+
+      if (normalizedItems.length > 0) {
+        setExpandedNodes(prev => ({
+          ...prev,
+          [nodeId]: normalizedItems
         }));
-        
-        console.log('🔄 Normalized items:', normalizedItems);
-        
-        // Add the child nodes to the store
-        addChildNodes(nodeId, normalizedItems);
-        
-        toast.success(`Added ${normalizedItems.length} sub-topics to "${content.substring(0, 30)}..."`);
-        console.log('🎉 Successfully elaborated node:', nodeId);
       } else {
-        console.warn('⚠️ No items found in response for elaboration');
-        throw new Error('No elaboration data received from the webhook');
+        console.warn('No items found in response');
       }
-      
     } catch (error) {
-      console.error('💥 Error during elaboration:', error);
-      toast.error(`Failed to elaborate: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error elaborating node:', error);
+      // Show user-friendly error
+      alert('Failed to elaborate. Please try again.');
     } finally {
       setLoadingNodes(prev => {
         const newSet = new Set(prev);
         newSet.delete(nodeId);
         return newSet;
       });
-      console.log('🔚 Elaboration process completed for node:', nodeId);
     }
-  }, [addChildNodes, setNodeExpanded]);
-  
-  // Generate React Flow nodes and edges
-  const { initialNodes, initialEdges } = useMemo(() => {
-    console.log('🔨 Generating nodes and edges for store nodes:', storeNodes);
-    
-    if (!storeNodes || storeNodes.length === 0) {
-      console.log('📭 No data provided, returning empty nodes/edges');
-      return { initialNodes: [], initialEdges: [] };
-    }
-    
+  }, [loadingNodes, expandedNodes]);
+
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    let yOffset = 0;
-    
-    // Create subject node
-    const subjectNodeId = 'subject-main';
+
+    if (data.length === 0) return { nodes, edges };
+
+    // Create the main Subject node at the top center
+    const subjectNodeId = 'subject-node';
     nodes.push({
       id: subjectNodeId,
-      type: 'subject-node',
-      position: { x: 400, y: yOffset },
-      data: { subject: subject || 'Main Topic' },
-      draggable: true,
+      type: 'subject',
+      position: { x: 0, y: 0 },
+      data: { 
+        subject: subject || 'Main Topic'
+      },
     });
+
+    // Calculate layout for hierarchical structure with proper spacing
+    const titleRowY = 350; // Increased distance below subject
+    const descRowY = 650;  // Increased distance below titles
+    const nodeSpacing = 400; // Increased horizontal spacing between nodes
     
-    yOffset += 200;
-    
-    // Create nodes for main items (those without parentId)
-    const mainNodes = storeNodes.filter(node => !node.parentId);
-    
-    mainNodes.forEach((item, index) => {
+    // Center the nodes horizontally
+    const startX = -(data.length - 1) * nodeSpacing / 2;
+
+    data.forEach((item, index) => {
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
       
-      // Title node
+      // Position title nodes in a horizontal row
+      const titleX = startX + index * nodeSpacing;
+      
+      // Title node in middle row
       nodes.push({
         id: titleNodeId,
-        type: 'title-node',
-        position: { x: 100 + (index % 3) * 300, y: yOffset },
+        type: 'title',
+        position: { x: titleX, y: titleRowY },
         data: { 
-          title: item.title, 
+          title: item.title,
           itemNumber: item.itemNumber,
           onElaborate: handleElaborate,
           isLoading: loadingNodes.has(titleNodeId)
         },
-        draggable: true,
       });
-      
-      // Description node
+
+      // Description node directly below its title
       nodes.push({
         id: descNodeId,
-        type: 'description-node',
-        position: { x: 100 + (index % 3) * 300, y: yOffset + 120 },
+        type: 'description',
+        position: { x: titleX, y: descRowY },
         data: { 
-          description: item.description, 
+          description: item.description,
           itemNumber: item.itemNumber,
           onElaborate: handleElaborate,
           isLoading: loadingNodes.has(descNodeId)
         },
-        draggable: true,
       });
-      
-      // Edges from subject to titles
+
+      // Edge from Subject to Title (from bottom of subject to top of title)
       edges.push({
-        id: `edge-subject-${titleNodeId}`,
+        id: `subject-title-${item.itemNumber}`,
         source: subjectNodeId,
-        target: titleNodeId,
         sourceHandle: 'bottom',
+        target: titleNodeId,
         targetHandle: 'top',
-        type: 'smoothstep',
+        type: 'straight',
+        animated: true,
         style: { 
           stroke: 'hsl(270, 80%, 60%)', 
           strokeWidth: 3,
-          filter: 'drop-shadow(0 0 10px hsl(270 80% 60% / 0.4))'
+          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: 'hsl(270, 80%, 60%)',
+          width: 8,
+          height: 8,
         },
-        animated: true,
       });
-      
-      // Edges from titles to descriptions
+
+      // Edge from Title to Description (from bottom of title to top of description)
       edges.push({
-        id: `edge-${titleNodeId}-${descNodeId}`,
+        id: `title-desc-${item.itemNumber}`,
         source: titleNodeId,
-        target: descNodeId,
         sourceHandle: 'bottom',
+        target: descNodeId,
         targetHandle: 'top',
-        type: 'smoothstep',
+        type: 'straight',
+        animated: false,
         style: { 
           stroke: 'hsl(260, 70%, 50%)', 
           strokeWidth: 2,
-          filter: 'drop-shadow(0 0 8px hsl(260 70% 50% / 0.3))'
+          opacity: 0.8,
+          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: 'hsl(260, 70%, 50%)',
+          width: 6,
+          height: 6,
         },
       });
-      
-      // Add child nodes if they exist
-      const childNodes = storeNodes.filter(child => 
-        child.parentId === titleNodeId || child.parentId === descNodeId
-      );
-      
-      if (childNodes.length > 0) {
-        console.log(`🌟 Adding child nodes for ${titleNodeId}/${descNodeId}:`, childNodes);
-        
-        childNodes.forEach((childNode, childIndex) => {
-          const childNodeId = childNode.id;
-          
-          nodes.push({
-            id: childNodeId,
-            type: 'description-node',
-            position: { 
-              x: 100 + (index % 3) * 300 + (childIndex * 150), 
-              y: yOffset + 280 + (Math.floor(childIndex / 2) * 100)
-            },
-            data: { 
-              description: childNode.description, 
-              itemNumber: childNode.itemNumber,
-              onElaborate: handleElaborate,
-              isLoading: loadingNodes.has(childNodeId)
-            },
-            draggable: true,
-          });
-          
-          // Edge from description to child node
-          edges.push({
-            id: `edge-${descNodeId}-${childNodeId}`,
-            source: descNodeId,
-            target: childNodeId,
-            sourceHandle: 'bottom',
-            targetHandle: 'top',
-            type: 'smoothstep',
-            style: { 
-              stroke: 'hsl(240, 60%, 40%)', 
-              strokeWidth: 2,
-              filter: 'drop-shadow(0 0 6px hsl(240 60% 40% / 0.3))'
-            },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: 'hsl(240, 60%, 40%)',
-            },
-          });
-        });
-      }
-      
-      // Move to next row after every 3 items
-      if ((index + 1) % 3 === 0) {
-        yOffset += 400;
-      }
     });
-    
-    console.log('✅ Generated nodes:', nodes.length, 'edges:', edges.length);
-    return { initialNodes: nodes, initialEdges: edges };
-  }, [storeNodes, subject, loadingNodes, handleElaborate]);
+
+    // Add expanded nodes
+    Object.entries(expandedNodes).forEach(([parentNodeId, expandedItems]) => {
+      const parentNode = nodes.find(n => n.id === parentNodeId);
+      if (!parentNode) return;
+
+      expandedItems.forEach((expandedItem, index) => {
+        const expandedNodeId = `${parentNodeId}-expanded-${index}`;
+        const expandedY = parentNode.position.y + 200 + (index * 150);
+
+        nodes.push({
+          id: expandedNodeId,
+          type: 'description',
+          position: { x: parentNode.position.x, y: expandedY },
+          data: {
+            description: expandedItem.description,
+            itemNumber: expandedItem.itemNumber,
+            onElaborate: handleElaborate
+          },
+        });
+
+        // Connect expanded node to parent
+        edges.push({
+          id: `${parentNodeId}-expanded-${index}`,
+          source: parentNodeId,
+          sourceHandle: 'bottom',
+          target: expandedNodeId,
+          targetHandle: 'top',
+          type: 'straight',
+          animated: false,
+          style: { 
+            stroke: 'hsl(280, 60%, 45%)', 
+            strokeWidth: 2,
+            opacity: 0.7,
+            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'hsl(280, 60%, 45%)',
+            width: 6,
+            height: 6,
+          },
+        });
+      });
+    });
+
+    return { nodes, edges };
+  }, [data, subject, expandedNodes, handleElaborate, loadingNodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -283,19 +272,19 @@ export const FlowchartCanvas = () => {
     [setEdges]
   );
 
-  if (!storeNodes || storeNodes.length === 0) {
+  if (data.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
-          <p className="text-lg mb-2">No mind map to display</p>
-          <p className="text-sm">Generate a mind map to see the visualization</p>
+          <div className="text-6xl mb-4">📊</div>
+          <p className="text-lg">Upload JSON data to visualize your flowchart</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -304,11 +293,11 @@ export const FlowchartCanvas = () => {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2, minZoom: 0.3, maxZoom: 1.5 }}
+        fitViewOptions={{ padding: 0.3, minZoom: 0.3, maxZoom: 1.5 }}
         minZoom={0.3}
         maxZoom={1.5}
         defaultEdgeOptions={{
-          type: 'smoothstep',
+          type: 'straight',
           animated: false,
         }}
       >
@@ -316,8 +305,8 @@ export const FlowchartCanvas = () => {
         <MiniMap 
           className="glass-panel"
           nodeColor={(node) => {
-            if (node.type === 'subject-node') return '#a855f7';
-            if (node.type === 'title-node') return '#8b5cf6';
+            if (node.type === 'subject') return '#a855f7';
+            if (node.type === 'title') return '#8b5cf6';
             return '#6366f1';
           }}
           maskColor="rgba(0, 0, 0, 0.8)"
