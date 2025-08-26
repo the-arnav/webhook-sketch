@@ -1,222 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root,
-.dark,
-:root.dark {
-  color-scheme: dark !important;
-  --background: hsl(240 10% 3.9%) !important;
-  --foreground: hsl(0 0% 98%) !important;
-  --card: hsl(240 10% 3.9%) !important;
-  --card-foreground: hsl(0 0% 98%) !important;
-  --popover: hsl(240 10% 3.9%) !important;
-  --popover-foreground: hsl(0 0% 98%) !important;
-  --primary: hsl(260 85% 65%) !important;
-  --primary-foreground: hsl(0 0% 98%) !important;
-  --secondary: hsl(240 4% 16%) !important;
-  --secondary-foreground: hsl(0 0% 98%) !important;
-  --muted: hsl(240 4% 16%) !important;
-  --muted-foreground: hsl(240 5% 65%) !important;
-  --accent: hsl(240 4% 16%) !important;
-  --accent-foreground: hsl(0 0% 98%) !important;
-  --destructive: hsl(0 84% 60%) !important;
-  --destructive-foreground: hsl(0 0% 98%) !important;
-  --border: hsl(240 5% 15%) !important;
-  --input: hsl(240 5% 15%) !important;
-  --ring: hsl(260 85% 65%) !important;
-  --glass-bg: rgba(15, 15, 20, 0.75) !important;
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
-  --canvas-bg: hsl(240 10% 3.9%) !important;
-}
-
-html, body {
-  background-color: var(--background) !important;
-  color: var(--foreground) !important;
-}
-
-/* Force dark mode for all themes */
-.light,
-:root.light,
-html.light,
-body.light {
-  color-scheme: dark !important;
-  --background: hsl(240 10% 3.9%) !important;
-  --foreground: hsl(0 0% 98%) !important;
-}
-
-@layer components {
-  .glass-panel {
-    @apply bg-opacity-85 backdrop-blur-md border border-transparent relative overflow-hidden;
-    background-color: var(--glass-bg);
-    box-shadow: var(--glass-shadow);
-    position: relative;
-  }
-  
-  /* Modern SaaS UI Components */
-  .sidebar {
-    @apply fixed top-0 h-full z-10 transition-all duration-300 ease-in-out;
-    width: 280px;
-  }
-  
-  .sidebar-left {
-    @apply left-0 border-r;
-  }
-  
-  .sidebar-right {
-    @apply right-0 border-l;
-  }
-  
-  .navbar {
-    @apply fixed top-0 left-0 right-0 z-20 h-14 border-b;
-    background: linear-gradient(to right, rgba(30, 20, 40, 0.8), rgba(40, 25, 50, 0.8));
-  }
-  
-  .card {
-    @apply rounded-xl p-6 shadow-lg;
-  }
-  
-  .gradient-button {
-    @apply bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white rounded-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg;
-  }
-  
-  /* Animation Classes */
-  .fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-  }
-  
-  .slide-in-right {
-    animation: slideInRight 0.3s ease-out;
-  }
-  
-  .slide-in-left {
-    animation: slideInLeft 0.3s ease-out;
-  }
-  
-  .scale-in {
-    animation: scaleIn 0.3s ease-out;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  @keyframes slideInRight {
-    from { transform: translateX(30px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  
-  @keyframes slideInLeft {
-    from { transform: translateX(-30px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  
-  @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-  
-  /* Controls and MiniMap styling */
-  .react-flow__controls {
-    @apply !border !border-purple-500/30 !rounded-md !shadow-lg;
-    background-color: rgba(30, 20, 40, 0.7) !important;
-  }
-  
-  .react-flow__controls button {
-    @apply !border-purple-500/20 !text-purple-200 hover:!bg-purple-900/50;
-    background-color: rgba(40, 30, 50, 0.6) !important;
-  }
-  
-  .react-flow__minimap {
-    @apply !border !border-purple-500/30 !rounded-md !shadow-lg;
-    background-color: rgba(30, 20, 40, 0.7) !important;
-  }
-  
-  /* Dark flow styling */
-  .dark-flow {
-  @apply bg-background;
-}
-
-/* Force dark mode for ReactFlow components */
-.react-flow,
-.react-flow__pane,
-.react-flow__viewport,
-.react-flow__container,
-.react-flow__node,
-.react-flow__edge,
-.react-flow__edge-path,
-.react-flow__controls,
-.react-flow__minimap {
-  filter: none !important;
-  background-color: transparent !important;
-  color: var(--foreground) !important;
-}
-  
-  /* Bottom chatbox styling */
-  .bottom-chatbox {
-    @apply fixed bottom-0 left-0 right-0 p-4 z-10;
-    backdrop-filter: blur(8px);
-    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
-  }
-  
-  .glass-panel::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--premium-border);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-  
-  .premium-text {
-    @apply font-medium tracking-tight;
-    background: linear-gradient(135deg, hsl(260 85% 75%), hsl(280 75% 65%));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  
-  .premium-button {
-    @apply relative overflow-hidden transition-all duration-500;
-    background: linear-gradient(135deg, hsl(260 85% 50%), hsl(280 75% 45%));
-    box-shadow: var(--premium-glow);
-  }
-  
-  .premium-button:hover {
-    @apply transform scale-105;
-    box-shadow: var(--premium-glow), 0 5px 20px rgba(0, 0, 0, 0.2);
-  }
-  
-  .premium-card {
-    @apply rounded-xl p-6 transition-all duration-500;
-    background-color: var(--card);
-    box-shadow: var(--premium-shadow);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .premium-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--premium-border);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-}
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
@@ -225,101 +9,66 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 220 15% 8%;
-    --foreground: 220 10% 98%;
+    --foreground: 220 10% 95%;
 
     --card: 220 15% 10%;
-    --card-foreground: 220 10% 98%;
+    --card-foreground: 220 10% 95%;
 
     --popover: 220 15% 10%;
-    --popover-foreground: 220 10% 98%;
+    --popover-foreground: 220 10% 95%;
 
-    --primary: 260 85% 65%;
+    --primary: 270 80% 65%;
     --primary-foreground: 220 10% 5%;
 
     --secondary: 220 15% 15%;
-    --secondary-foreground: 220 10% 98%;
+    --secondary-foreground: 220 10% 95%;
 
     --muted: 220 15% 15%;
-    --muted-foreground: 220 8% 70%;
+    --muted-foreground: 220 8% 60%;
 
-    --accent: 260 70% 55%;
-    --accent-foreground: 220 10% 98%;
+    --accent: 270 60% 50%;
+    --accent-foreground: 220 10% 95%;
 
     --destructive: 0 75% 60%;
-    --destructive-foreground: 220 10% 98%;
+    --destructive-foreground: 220 10% 95%;
 
     --border: 220 15% 20%;
     --input: 220 15% 15%;
-    --ring: 260 85% 65%;
+    --ring: 270 80% 65%;
 
     /* Premium Dark Canvas Design System */
-    --canvas-bg: hsl(220 20% 3%);
-    --canvas-overlay: radial-gradient(circle at center, hsl(260 50% 15% / 0.1), transparent 70%);
+    --canvas-bg: hsl(0 0% 0%);
+    --canvas-overlay: transparent;
     
-    --node-subject-bg: hsl(220 15% 10%);
-    --node-subject-border: linear-gradient(135deg, hsl(260 80% 50% / 0.8), hsl(280 70% 60% / 0.4));
-    --node-subject-shadow: 0 25px 60px -20px hsl(260 80% 20% / 0.8);
+    --node-subject-bg: hsl(0 0% 8%);
+    --node-subject-border: hsl(0 0% 20%);
+    --node-subject-shadow: 0 25px 60px -20px hsl(0 0% 0% / 0.8);
     
-    --node-title-bg: hsl(220 15% 12%);
-    --node-title-border: linear-gradient(135deg, hsl(260 80% 50% / 0.6), hsl(280 70% 60% / 0.3));
-    --node-title-shadow: 0 20px 40px -15px hsl(260 80% 20% / 0.7);
+    --node-title-bg: hsl(0 0% 8%);
+    --node-title-border: hsl(0 0% 20%);
+    --node-title-shadow: 0 20px 40px -15px hsl(0 0% 0% / 0.8);
     
-    --node-desc-bg: hsl(220 15% 14%);
-    --node-desc-border: linear-gradient(135deg, hsl(260 80% 50% / 0.4), hsl(280 70% 60% / 0.2));
-    --node-desc-shadow: 0 15px 30px -10px hsl(260 80% 20% / 0.6);
+    --node-desc-bg: hsl(0 0% 8%);
+    --node-desc-border: hsl(0 0% 20%);
+    --node-desc-shadow: 0 15px 30px -10px hsl(0 0% 0% / 0.8);
     
-    --edge-primary: hsl(260 85% 65%);
-    --edge-secondary: hsl(280 75% 55%);
-    --edge-glow: 0 0 25px hsl(260 85% 65% / 0.5);
+    --edge-primary: hsl(270 80% 60%);
+    --edge-secondary: hsl(260 70% 50%);
+    --edge-glow: 0 0 20px hsl(270 80% 60% / 0.4);
     
-    --glass-bg: hsl(220 20% 12% / 0.85);
-    --glass-border: linear-gradient(135deg, hsl(260 80% 50% / 0.4), hsl(280 70% 60% / 0.2));
-    --glass-shadow: 0 10px 40px hsl(260 80% 10% / 0.4);
-    
-    /* Canvas Colors */
-    --canvas-bg: hsl(220 20% 3%);
-    --canvas-overlay: radial-gradient(circle at center, hsl(260 50% 15% / 0.1), transparent 70%);
-    
-    /* Node Colors */
-    --node-subject-bg: hsl(220 15% 10%);
-    --node-subject-border: linear-gradient(135deg, hsl(260 80% 50% / 0.8), hsl(280 70% 60% / 0.4));
-    --node-subject-shadow: 0 25px 60px -20px hsl(260 80% 20% / 0.8);
-    
-    --node-title-bg: hsl(220 15% 12%);
-    --node-title-border: linear-gradient(135deg, hsl(260 80% 50% / 0.6), hsl(280 70% 60% / 0.3));
-    --node-title-shadow: 0 20px 40px -15px hsl(260 80% 20% / 0.7);
-    
-    --node-desc-bg: hsl(220 15% 14%);
-    --node-desc-border: linear-gradient(135deg, hsl(260 80% 50% / 0.4), hsl(280 70% 60% / 0.2));
-    --node-desc-shadow: 0 15px 30px -10px hsl(260 80% 20% / 0.6);
-    
-    /* Edge Colors */
-    --edge-primary: hsl(260 85% 65%);
-    --edge-secondary: hsl(280 75% 55%);
-    --edge-glow: 0 0 25px hsl(260 85% 65% / 0.5);
+    --glass-bg: hsl(220 20% 12% / 0.8);
+    --glass-border: hsl(270 50% 40% / 0.3);
+    --glass-shadow: 0 8px 32px hsl(220 20% 5% / 0.3);
     
     /* Premium Effects */
-    --premium-glow: 0 0 40px hsl(260 85% 65% / 0.4);
-    --premium-shadow: 0 25px 70px -20px hsl(260 80% 10% / 0.8);
-    --premium-border: linear-gradient(135deg, hsl(260 85% 50% / 0.6), hsl(280 75% 60% / 0.4));
+    --premium-glow: 0 0 30px hsl(270 80% 60% / 0.3);
+    --premium-shadow: 0 20px 60px -20px hsl(220 20% 5% / 0.8);
+    --premium-border: linear-gradient(135deg, hsl(270 80% 50% / 0.5), hsl(280 70% 60% / 0.3));
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     --transition-glow: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    --transition-premium: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-    
-    /* Premium Typography */
-    --font-heading: 'Inter', system-ui, sans-serif;
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-    --font-weight-light: 300;
-    --font-weight-normal: 400;
-    --font-weight-medium: 500;
-    --font-weight-semibold: 600;
-    --font-weight-bold: 700;
-    --letter-spacing-tight: -0.025em;
-    --letter-spacing-wide: 0.025em;
 
     --radius: 0.5rem;
 
@@ -586,73 +335,6 @@ All colors MUST be HSL.
 .react-flow__node * {
   font-size: inherit !important;
   line-height: inherit !important;
-}
-
-/* Canvas Node Styles */
-.canvas-node-subject {
-  background-color: var(--node-subject-bg);
-  border: 1px solid transparent;
-  box-shadow: var(--node-subject-shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.canvas-node-subject::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--node-subject-border);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.canvas-node-title {
-  background-color: var(--node-title-bg);
-  border: 1px solid transparent;
-  box-shadow: var(--node-title-shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.canvas-node-title::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--node-title-border);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.canvas-node-description {
-  background-color: var(--node-desc-bg);
-  border: 1px solid transparent;
-  box-shadow: var(--node-desc-shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.canvas-node-description::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--node-desc-border);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 
 /* Ensure text remains readable at all zoom levels */

@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
-	darkMode: ["class", "[data-mode=dark]"],
+	darkMode: ["class"],
 	content: [
 		"./pages/**/*.{ts,tsx}",
 		"./components/**/*.{ts,tsx}",
@@ -67,18 +67,6 @@ export default {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
-			},
-			fontFamily: {
-				sans: [
-					"Inter",
-					"-apple-system",
-					"BlinkMacSystemFont",
-					"Segoe UI",
-					"Roboto",
-					"Helvetica Neue",
-					"Arial",
-					"sans-serif",
-				],
 			},
 			keyframes: {
 				'accordion-down': {

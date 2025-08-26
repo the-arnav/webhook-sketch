@@ -20,14 +20,13 @@ export const TitleNode = memo((props: NodeProps) => {
   };
 
   return (
-    <div className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale shadow-lg">
+    <div className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale">
       {/* Top handle for receiving connections from subject */}
       <Handle 
         type="target" 
         position={Position.Top} 
         id="top"
-        className="!bg-purple-500 !border-purple-300 !w-3 !h-3 !shadow-md !border-2"
-        style={{ boxShadow: '0 0 8px hsl(270, 90%, 70%, 0.6)' }}
+        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
       />
       
       <div className="space-y-4 relative z-10">
@@ -35,7 +34,7 @@ export const TitleNode = memo((props: NodeProps) => {
           <div className="w-8 h-8 bg-purple-400/20 rounded-full flex items-center justify-center text-sm font-bold text-purple-300 shadow-sm">
             {data.itemNumber}
           </div>
-          <div className="px-3 py-1.5 bg-purple-400/20 rounded-full text-xs font-medium text-purple-300 backdrop-blur-sm border border-purple-400/30">
+          <div className="px-3 py-1.5 bg-blue-400/20 rounded-full text-xs font-medium text-blue-300 backdrop-blur-sm border border-blue-400/30">
             📝 Topic
           </div>
         </div>
@@ -49,7 +48,7 @@ export const TitleNode = memo((props: NodeProps) => {
           size="sm"
           variant="ghost"
           disabled={data.isLoading}
-          className="w-full text-xs text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-400/30 disabled:opacity-50 transition-all duration-300"
+          className="w-full text-xs text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-400/30 disabled:opacity-50"
         >
           <ChevronDown className="w-3 h-3 mr-1" />
           {data.isLoading ? 'Loading...' : 'Elaborate More'}
