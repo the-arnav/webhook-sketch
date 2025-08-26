@@ -32,9 +32,10 @@ interface FlowchartData {
 interface FlowchartCanvasProps {
   data: FlowchartData[];
   subject?: string;
+  onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
-export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
+export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
 
   const { nodes: baseNodes, edges: baseEdges } = useMemo(() => {
@@ -165,6 +166,11 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
     attachHandlers();
   }, [attachHandlers, baseNodes, loadingNodes]);
 
+  // Emit snapshots when graph changes
+  useEffect(() => {
+    onSnapshot?.({ nodes, edges });
+  }, [nodes, edges, onSnapshot]);
+
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     // Prefer the specified shape: response[0].output.items
     const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
@@ -183,7 +189,7 @@ export const FlowchartCanvas = ({ data, subject }: FlowchartCanvasProps) => {
       const existingChildrenCount = prevNodes.filter(n => n.id.startsWith(`${parentNodeId}-`)).length;
 
       // Layout parameters
-      const horizontalSpacing = 300; // distance between siblings
+      const horizontalSpacing = 400; // distance between siblings
       const verticalSpacing = 500;   // distance from parent per row
       const rowIndex = Math.max(0, Math.floor(existingChildrenCount / Math.max(1, items.length)));
       const baseY = parent.position.y + verticalSpacing + rowIndex * verticalSpacing;

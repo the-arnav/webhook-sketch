@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
 import { JSONUploader } from '@/components/JSONUploader';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import heroImage from '@/assets/hero-bg.jpg';
+import { generateId, saveCanvas } from '@/utils/storage';
 
 interface FlowchartData {
   itemNumber: number;
@@ -15,11 +16,30 @@ const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
   const [subject, setSubject] = useState<string>('');
   const [showUploader, setShowUploader] = useState(true);
+  const latestSnapshotRef = useRef<{ nodes: unknown[]; edges: unknown[] } | null>(null);
 
   const handleDataLoad = (data: FlowchartData[], subjectText?: string) => {
     setFlowchartData(data);
     setSubject(subjectText || 'Main Topic');
     setShowUploader(false);
+  };
+
+  const handleSave = () => {
+    if (!flowchartData.length || !latestSnapshotRef.current) return;
+    const id = generateId('canvas');
+    const title = subject || 'Mindmap';
+    saveCanvas({
+      id,
+      title,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      data: {
+        nodes: latestSnapshotRef.current.nodes,
+        edges: latestSnapshotRef.current.edges,
+        subject,
+      },
+    });
+    alert('Canvas saved');
   };
 
   return (
@@ -36,39 +56,43 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Interactive JSON Flowchart Generator</p>
             </div>
           </div>
-          
-          {flowchartData.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFlowchartData([]);
-                  setSubject('');
-                  setShowUploader(true);
-                }}
-                className="flex items-center gap-2"
-              >
-                Clear Canvas
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowUploader(!showUploader)}
-                className="flex items-center gap-2"
-              >
-                {showUploader ? (
-                  <>
-                    <ChevronRight className="w-4 h-4" />
-                    View Canvas
-                  </>
-                ) : (
-                  <>
-                    <ChevronLeft className="w-4 h-4" />
-                    Edit Data
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            {flowchartData.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFlowchartData([]);
+                    setSubject('');
+                    setShowUploader(true);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  Clear Canvas
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUploader(!showUploader)}
+                  className="flex items-center gap-2"
+                >
+                  {showUploader ? (
+                    <>
+                      <ChevronRight className="w-4 h-4" />
+                      View Canvas
+                    </>
+                  ) : (
+                    <>
+                      <ChevronLeft className="w-4 h-4" />
+                      Edit Data
+                    </>
+                  )}
+                </Button>
+                <Button onClick={handleSave} className="flex items-center gap-2">
+                  <Save className="w-4 h-4" /> Save
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -107,7 +131,12 @@ const Index = () => {
               <div className="absolute inset-0 bg-background/20 backdrop-blur-sm" />
             </div>
           ) : (
-            <FlowchartCanvas data={flowchartData} subject={subject} />
+            <FlowchartCanvas 
+              data={flowchartData} 
+              subject={subject}
+              // @ts-ignore expose snapshot
+              onSnapshot={(snap: { nodes: unknown[]; edges: unknown[] }) => { latestSnapshotRef.current = snap }}
+            />
           )}
         </div>
       </main>
