@@ -148,6 +148,104 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   const [nodes, setNodes, onNodesChange] = useNodesState(baseNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
 
+  // Keep internal state in sync when incoming data/subject changes
+  useEffect(() => {
+    setNodes(baseNodes);
+    setEdges(baseEdges);
+  }, [baseNodes, baseEdges, setNodes, setEdges]);
+
+  // --- Layout helpers ---
+  type NodeMap = Map<string, Node>;
+  type ChildrenMap = Map<string, string[]>;
+
+  const layoutGraph = useCallback((inputNodes: Node[], inputEdges: Edge[]): Node[] => {
+    const horizontalSpacing = 320;
+    const verticalSpacing = 300;
+    const minGapX = 220;
+
+    const idToNode: NodeMap = new Map(inputNodes.map(n => [n.id, { ...n }]));
+    const children: ChildrenMap = new Map();
+    const indeg: Record<string, number> = {};
+    for (const n of inputNodes) indeg[n.id] = 0;
+    for (const e of inputEdges) {
+      if (!children.has(e.source)) children.set(e.source, []);
+      children.get(e.source)!.push(e.target);
+      indeg[e.target] = (indeg[e.target] ?? 0) + 1;
+    }
+
+    // Pick root: prefer subject node, else any node with indegree 0
+    const subjectNode = inputNodes.find(n => n.type === 'subject') || inputNodes.find(n => (indeg[n.id] ?? 0) === 0) || inputNodes[0];
+    if (!subjectNode) return inputNodes;
+
+    // Assign depths via BFS
+    const depth: Record<string, number> = {};
+    const queue: string[] = [subjectNode.id];
+    depth[subjectNode.id] = 0;
+    const visited = new Set<string>([subjectNode.id]);
+    while (queue.length) {
+      const u = queue.shift() as string;
+      const kids = children.get(u) || [];
+      for (const v of kids) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          depth[v] = (depth[u] ?? 0) + 1;
+          queue.push(v);
+        }
+      }
+    }
+
+    // Ensure root is near top center
+    const root = idToNode.get(subjectNode.id)!;
+    root.position = { x: root.position.x ?? 0, y: 0 } as any;
+
+    // Order children and place them under parents
+    const placeChildren = (parentId: string) => {
+      const parent = idToNode.get(parentId);
+      if (!parent) return;
+      const kids = (children.get(parentId) || []).filter(id => idToNode.has(id));
+      if (kids.length === 0) return;
+      const startX = parent.position.x - (horizontalSpacing * (kids.length - 1)) / 2;
+      kids.forEach((kidId, index) => {
+        const kid = idToNode.get(kidId)!;
+        kid.position = {
+          x: startX + index * horizontalSpacing,
+          y: parent.position.y + verticalSpacing,
+        } as any;
+      });
+      // recurse
+      kids.forEach(kidId => placeChildren(kidId));
+    };
+    placeChildren(subjectNode.id);
+
+    // Repel horizontally per depth level to maintain minGapX
+    const levels: Record<number, string[]> = {};
+    for (const [id, d] of Object.entries(depth)) {
+      if (!levels[d]) levels[d] = [];
+      levels[d].push(id);
+    }
+    for (const d of Object.keys(levels).map(Number).sort((a, b) => a - b)) {
+      const ids = levels[d].filter(id => idToNode.has(id));
+      ids.sort((a, b) => idToNode.get(a)!.position.x - idToNode.get(b)!.position.x);
+      for (let i = 1; i < ids.length; i++) {
+        const prev = idToNode.get(ids[i - 1])!;
+        const curr = idToNode.get(ids[i])!;
+        const dx = (prev.position.x + minGapX) - curr.position.x;
+        if (dx > 0) {
+          // shift subtree of curr to the right by dx
+          const shiftQueue = [ids[i]];
+          while (shiftQueue.length) {
+            const nid = shiftQueue.shift() as string;
+            const n = idToNode.get(nid)!;
+            n.position = { x: n.position.x + dx, y: n.position.y } as any;
+            for (const ch of (children.get(nid) || [])) shiftQueue.push(ch);
+          }
+        }
+      }
+    }
+
+    return Array.from(idToNode.values());
+  }, []);
+
   // Attach handlers and loading state to current nodes whenever either changes
   const attachHandlers = useCallback(() => {
     setNodes(prev => prev.map(n => {
@@ -166,10 +264,13 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     attachHandlers();
   }, [attachHandlers, baseNodes, loadingNodes]);
 
-  // Emit snapshots when graph changes
+  // Emit snapshots and apply layout when graph changes
   useEffect(() => {
-    onSnapshot?.({ nodes, edges });
-  }, [nodes, edges, onSnapshot]);
+    const laidOut = layoutGraph(nodes, edges);
+    setNodes(laidOut);
+    onSnapshot?.({ nodes: laidOut, edges });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges]);
 
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     // Prefer the specified shape: response[0].output.items
@@ -188,24 +289,62 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       // Determine how many children already exist for this parent to stagger rows
       const existingChildrenCount = prevNodes.filter(n => n.id.startsWith(`${parentNodeId}-`)).length;
 
-      // Layout parameters
-      const horizontalSpacing = 400; // distance between siblings
-      const verticalSpacing = 500;   // distance from parent per row
-      const rowIndex = Math.max(0, Math.floor(existingChildrenCount / Math.max(1, items.length)));
-      const baseY = parent.position.y + verticalSpacing + rowIndex * verticalSpacing;
+      // Layout parameters (deterministic lanes per parent)
+      const horizontalSpacing = 320; // even spacing between siblings
+      const verticalSpacing = 500;   // distance from parent to children row
+      const nodeWidth = 260;         // approximate node width for interval collision
+      const rowSnap = 80;            // y tolerance to treat nodes as same row
+      const baseY = parent.position.y + verticalSpacing;
 
-      const totalWidth = (items.length - 1) * horizontalSpacing;
-      const startX = parent.position.x - totalWidth / 2;
+      // Build occupied intervals on this children row to avoid cross-parent overlap
+      // children row we are targeting
+      const childrenRowY = baseY;
+      const occupiedIntervals: Array<{ left: number; right: number }> = prevNodes
+        .filter(n => Math.abs(n.position.y - childrenRowY) < rowSnap)
+        .map(n => ({ left: n.position.x - nodeWidth / 2, right: n.position.x + nodeWidth / 2 }))
+        .sort((a, b) => a.left - b.left);
+
+      const intersects = (left: number, right: number) => {
+        return occupiedIntervals.some(iv => !(right <= iv.left || left >= iv.right));
+      };
+
+      const reserveSlot = (centerX: number) => {
+        // Shift by multiples of horizontalSpacing until a free slot is found
+        let x = centerX;
+        let guard = 0;
+        while (guard++ < 200) {
+          const left = x - nodeWidth / 2;
+          const right = x + nodeWidth / 2;
+          if (!intersects(left, right)) {
+            occupiedIntervals.push({ left, right });
+            return x;
+          }
+          // Try shifting alternately right and left
+          const step = Math.ceil(guard / 2) * horizontalSpacing;
+          x = guard % 2 === 0 ? centerX - step : centerX + step;
+        }
+        return centerX; // fallback
+      };
+
+      const placedNodes: Node[] = [];
+      const totalChildren = existingChildrenCount + items.length;
+      const firstIndex = existingChildrenCount; // new indices start after existing
+      const startX = parent.position.x - (horizontalSpacing * (totalChildren - 1)) / 2;
 
       const newNodes: Node[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
         const id = `${parentNodeId}-${itemNumber}`;
-        const x = startX + idx * horizontalSpacing;
-        const y = baseY + (idx % 2 === 0 ? 0 : 20); // slight stagger to avoid visual overlap
-        return {
+        const desiredX = startX + (firstIndex + idx) * horizontalSpacing;
+        const desiredY = baseY;
+
+        // Reserve a non-overlapping slot on this row
+        const chosenX = reserveSlot(desiredX);
+        const chosenY = desiredY;
+
+        const node: Node = {
           id,
           type: 'description',
-          position: { x, y },
+          position: { x: chosenX, y: chosenY },
           data: {
             description: item.description ?? 'No description',
             itemNumber,
@@ -214,16 +353,85 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
             title: item.title ?? ''
           }
         } as Node;
+
+        placedNodes.push(node);
+        return node;
       }).filter(n => !existingIds.has(n.id));
 
       if (newNodes.length === 0) return prevNodes;
-      return [...prevNodes, ...newNodes];
+
+      // Merge first so we can compute row groups
+      let merged = [...prevNodes, ...newNodes];
+
+      // Enforce minimum spacing between sibling branches by shifting whole subtrees
+      const minBranchGap = 100; // minimum gap between children blocks on the same row
+
+      // Build groups for this row: bounds per parent based on its children on childrenRowY
+      type Group = { parentId: string; left: number; right: number };
+      const groupsMap = new Map<string, Group>();
+      for (const n of merged) {
+        if (!n.id.startsWith(`${parentNodeId.split('-')[0]}`)) {
+          // not necessarily related; we'll derive group by parent prefixes next
+        }
+      }
+
+      // Identify all parents that have children on this row
+      const parentIdsOnRow = new Set<string>();
+      for (const n of merged) {
+        // child ids are in format `${parentId}-X`
+        const dashIdx = n.id.lastIndexOf('-');
+        if (dashIdx > 0) {
+          const maybeParent = n.id.substring(0, dashIdx);
+          // verify this is a child of a real parent node existing
+          const p = merged.find(x => x.id === maybeParent);
+          if (p && Math.abs(n.position.y - childrenRowY) < rowSnap) parentIdsOnRow.add(maybeParent);
+        }
+      }
+
+      const groups: Group[] = [];
+      for (const pid of parentIdsOnRow) {
+        const kids = merged.filter(n => n.id.startsWith(`${pid}-`) && Math.abs(n.position.y - childrenRowY) < rowSnap);
+        if (kids.length === 0) continue;
+        const xs = kids.map(k => k.position.x);
+        const left = Math.min(...xs) - nodeWidth / 2;
+        const right = Math.max(...xs) + nodeWidth / 2;
+        groups.push({ parentId: pid, left, right });
+      }
+
+      groups.sort((a, b) => a.left - b.left);
+
+      const shiftSubtree = (rootId: string, dx: number) => {
+        merged = merged.map(n => {
+          if (n.id === rootId || n.id.startsWith(`${rootId}-`)) {
+            return { ...n, position: { x: n.position.x + dx, y: n.position.y } } as Node;
+          }
+          return n;
+        });
+      };
+
+      for (let i = 1; i < groups.length; i++) {
+        const prev = groups[i - 1];
+        const curr = groups[i];
+        if (curr.left < prev.right + minBranchGap) {
+          const needed = prev.right + minBranchGap - curr.left;
+          shiftSubtree(curr.parentId, needed);
+          curr.left += needed;
+          curr.right += needed;
+          // propagate shift to subsequent groups
+          for (let j = i + 1; j < groups.length; j++) {
+            groups[j].left += needed;
+            groups[j].right += needed;
+          }
+        }
+      }
+
+      return merged;
     });
 
     setEdges(prevEdges => {
       const existingEdgeIds = new Set(prevEdges.map(e => e.id));
-      const newEdges: Edge[] = items.map((item: any) => {
-        const itemNumber = item.itemNumber ?? 0;
+      const newEdges: Edge[] = items.map((item: any, idx: number) => {
+        const itemNumber = item.itemNumber ?? idx + 1;
         const targetId = `${parentNodeId}-${itemNumber}`;
         const id = `${parentNodeId}->${targetId}`;
         return {
@@ -297,19 +505,8 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     [setEdges]
   );
 
-  if (data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <div className="text-center">
-          <div className="text-6xl mb-4">📊</div>
-          <p className="text-lg">Upload JSON data to visualize your flowchart</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="w-full h-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}

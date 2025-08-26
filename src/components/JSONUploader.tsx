@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Send, Brain, AlertCircle, Loader2 } from 'lucide-react';
 
 interface JSONUploaderProps {
   onDataLoad: (data: any[], subject?: string) => void;
+  onGeneratingChange?: (generating: boolean) => void;
 }
 
 const WEBHOOK_URL = 'https://officially-probable-hamster.ngrok-free.app/webhook/b919abb2-222c-4793-958f-83fa6b3e729c';
@@ -139,9 +140,15 @@ const normalizeItem = (item: any, index: number): any => {
   };
 };
 
-export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
+export const JSONUploader = ({ onDataLoad, onGeneratingChange }: JSONUploaderProps) => {
   const [promptInput, setPromptInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const suggestions = [
+    'Explain machine learning basics',
+    'How do webhooks work?',
+    'Quantum physics for beginners',
+    'Photosynthesis process',
+  ];
 
   const handleSendPrompt = async () => {
     if (!promptInput.trim()) {
@@ -150,6 +157,7 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
     }
 
     setIsLoading(true);
+    onGeneratingChange?.(true);
     
     try {
       const response = await fetch(WEBHOOK_URL, {
@@ -190,11 +198,14 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
       toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate flowchart'}`);
     } finally {
       setIsLoading(false);
+      onGeneratingChange?.(false);
     }
   };
 
-  const loadSamplePrompt = () => {
-    setPromptInput('Explain how photosynthesis works');
+  const surpriseMe = () => {
+    const random = suggestions[Math.floor(Math.random() * suggestions.length)];
+    setPromptInput(random);
+    handleSendPrompt();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -205,63 +216,63 @@ export const JSONUploader = ({ onDataLoad }: JSONUploaderProps) => {
   };
 
   return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="w-5 h-5" />
-          AI Learning Assistant
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Textarea
-            placeholder="What would you like to learn about? (e.g., 'How does machine learning work?', 'Explain quantum physics basics', 'Solar system planets')"
-            value={promptInput}
-            onChange={(e) => setPromptInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="min-h-[100px] resize-none"
-            disabled={isLoading}
-          />
-          <div className="flex items-start gap-2 text-xs text-muted-foreground">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div>
-              <strong>AI-Powered Learning:</strong> Enter any topic you want to understand
-              <br />
-              <strong>Smart Processing:</strong> AI will break down complex topics into digestible flowchart steps
-              <br />
-              <strong>Tip:</strong> Press Enter to send, or Shift+Enter for new line
-            </div>
-          </div>
+    <motion.div
+      initial={{ y: 40, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+      className="glass-panel rounded-2xl p-3 md:p-4 shadow-xl backdrop-blur-xl bg-background/60"
+    >
+      <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+          <Brain className="w-4 h-4" />
+          <span>Ask anything...</span>
         </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleSendPrompt} 
-            disabled={isLoading || !promptInput.trim()}
-            className="flex-1"
+        <Input
+          placeholder="What would you like to learn?"
+          value={promptInput}
+          onChange={(e) => setPromptInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          disabled={isLoading}
+          className="flex-1 border-0 bg-white/5 focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+        <Button 
+          onClick={handleSendPrompt} 
+          disabled={isLoading || !promptInput.trim()}
+          className="gap-1"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              Generating
+            </>
+          ) : (
+            <>
+              <Send className="w-4 h-4" />
+              <span className="hidden sm:inline">Generate</span>
+            </>
+          )}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={surpriseMe}
+          disabled={isLoading}
+          className="gap-1"
+        >
+          🎲 <span className="hidden sm:inline">Surprise Me</span>
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-2 text-xs">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setPromptInput(s)}
+            className="px-2 py-1 rounded-full bg-white/5 hover:bg-white/10 transition"
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-2" />
-                Generate Flowchart
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={loadSamplePrompt}
-            disabled={isLoading}
-            className="whitespace-nowrap"
-          >
-            Try Sample
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+            {s}
+          </button>
+        ))}
+      </div>
+    </motion.div>
   );
 };

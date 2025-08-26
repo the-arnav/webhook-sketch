@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+# MindMap Ai
+
+Interactive JSON flowchart and mind map generator. Turn structured JSON into visual, draggable canvases.
 
 ## Project info
-
-**URL**: https://lovable.dev/projects/09effc76-f97a-4e6b-aa63-22ea7c7aaa88
 
 ## How can I edit this code?
 

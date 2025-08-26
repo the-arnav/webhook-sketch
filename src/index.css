@@ -56,7 +56,7 @@ All colors MUST be HSL.
     --edge-secondary: hsl(260 70% 50%);
     --edge-glow: 0 0 20px hsl(270 80% 60% / 0.4);
     
-    --glass-bg: hsl(220 20% 12% / 0.8);
+    --glass-bg: hsl(270 25% 12% / 0.8);
     --glass-border: hsl(270 50% 40% / 0.3);
     --glass-shadow: 0 8px 32px hsl(220 20% 5% / 0.3);
     
@@ -72,67 +72,56 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-background: 270 25% 10%;
+    --sidebar-foreground: 270 10% 92%;
+    --sidebar-primary: 270 70% 50%;
     --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 270 25% 16%;
+    --sidebar-accent-foreground: 270 10% 92%;
+    --sidebar-border: 270 20% 20%;
+    --sidebar-ring: 270 80% 60%;
   }
 
   .dark {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 3.9%;
-
-    --card: 0 0% 98%;
-    --card-foreground: 240 10% 3.9%;
-
-    --popover: 0 0% 98%;
-    --popover-foreground: 240 10% 3.9%;
-
-    --primary: 263 70% 50%;
-    --primary-foreground: 0 0% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 240 10% 3.9%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 240 10% 3.9%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 263 70% 50%;
-    
-    /* Light mode canvas adjustments */
-    --canvas-bg: linear-gradient(135deg, 0 0% 98%, 220 13% 95%);
-    --node-title-bg: linear-gradient(135deg, 263 70% 50%, 280 70% 55%);
-    --node-desc-bg: linear-gradient(135deg, 0 0% 98%, 210 40% 96.1%);
-    --glass-bg: hsl(0 0% 98% / 0.8);
-    --glass-border: hsl(263 70% 50% / 0.2);
-    
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 220 15% 8%;
+    --foreground: 220 10% 95%;
+    --card: 220 15% 10%;
+    --card-foreground: 220 10% 95%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 220 10% 95%;
+    --primary: 270 80% 65%;
+    --primary-foreground: 220 10% 5%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 10% 95%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 8% 60%;
+    --accent: 270 60% 50%;
+    --accent-foreground: 220 10% 95%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 220 10% 95%;
+    --border: 220 15% 20%;
+    --input: 220 15% 15%;
+    --ring: 270 80% 65%;
+    --canvas-bg: hsl(0 0% 0%);
+    --canvas-overlay: transparent;
+    --node-subject-bg: hsl(0 0% 8%);
+    --node-subject-border: hsl(0 0% 20%);
+    --node-title-bg: hsl(0 0% 8%);
+    --node-title-border: hsl(0 0% 20%);
+    --node-desc-bg: hsl(0 0% 8%);
+    --node-desc-border: hsl(0 0% 20%);
+    --edge-primary: hsl(270 80% 60%);
+    --edge-secondary: hsl(260 70% 50%);
+    --glass-bg: hsl(270 25% 12% / 0.8);
+    --glass-border: hsl(270 50% 40% / 0.3);
+    --sidebar-background: 270 25% 10%;
+    --sidebar-foreground: 270 10% 92%;
+    --sidebar-primary: 270 70% 50%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 270 25% 16%;
+    --sidebar-accent-foreground: 270 10% 92%;
+    --sidebar-border: 270 20% 20%;
+    --sidebar-ring: 270 80% 60%;
   }
 }
 
@@ -151,6 +140,31 @@ All colors MUST be HSL.
 }
 
 /* Premium Dark Canvas Node Styles */
+/* Animated background for empty state */
+.bg-animated {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, hsl(270 80% 25% / 0.35), transparent 35%),
+              radial-gradient(circle at 80% 30%, hsl(260 70% 30% / 0.35), transparent 40%),
+              radial-gradient(circle at 50% 80%, hsl(280 70% 28% / 0.35), transparent 35%),
+              linear-gradient(120deg, hsl(270 25% 10%), hsl(270 20% 12%) 30%, hsl(270 18% 9%));
+  background-size: 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  animation: move-blobs 18s ease-in-out infinite;
+  filter: saturate(1.1);
+}
+
+@keyframes move-blobs {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%, 0% 100%, 50% 0%, 0% 0%;
+  }
+  100% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 0%;
+  }
+}
+
 .canvas-node-subject {
   background: var(--node-subject-bg);
   border: 2px solid transparent;

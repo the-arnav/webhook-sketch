@@ -45,6 +45,11 @@ export function getCanvases(): SavedCanvas[] {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+// Convenience alias for UI usage
+export function listCanvases(): SavedCanvas[] {
+  return getCanvases();
+}
+
 export function saveCanvas(canvas: SavedCanvas) {
   const items = getCanvases();
   const idx = items.findIndex(c => c.id === canvas.id);
