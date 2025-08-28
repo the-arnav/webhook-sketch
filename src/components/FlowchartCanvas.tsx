@@ -506,32 +506,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   );
 
   return (
-    <div className="w-full h-full relative overflow-hidden" style={{ background: 'var(--canvas-bg)' }}>
-      {/* Premium animated background for empty state */}
-      {nodes.length === 0 && (
-        <div className="absolute inset-0">
-          <div className="bg-animated" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center max-w-md p-8 glass-panel rounded-2xl animate-scale-in">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 relative"
-                   style={{ 
-                     background: 'var(--glass-bg)',
-                     border: '1px solid var(--glass-border)',
-                     boxShadow: 'var(--premium-glow)'
-                   }}>
-                <div className="w-12 h-12 rounded-full flex items-center justify-center animate-pulse"
-                     style={{ background: 'linear-gradient(135deg, hsl(270 80% 60% / 0.3), hsl(280 70% 50% / 0.3))' }}>
-                  <div className="w-6 h-6 rounded-full" 
-                       style={{ background: 'var(--edge-primary)' }}></div>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Ready to Create</h2>
-              <p className="text-muted-foreground text-lg leading-relaxed">Enter a topic above to generate your premium flowchart</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
+    <div className="w-full h-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -547,26 +522,22 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           type: 'straight',
           animated: false,
         }}
-        className="bg-transparent"
       >
         <Controls className="glass-panel" />
         <MiniMap 
           className="glass-panel"
           nodeColor={(node) => {
-            switch (node.type) {
-              case 'subject': return 'hsl(270, 80%, 65%)';
-              case 'title': return 'hsl(270, 70%, 60%)'; 
-              case 'description': return 'hsl(260, 70%, 55%)';
-              default: return 'hsl(270, 60%, 50%)';
-            }
+            if (node.type === 'subject') return '#a855f7';
+            if (node.type === 'title') return '#8b5cf6';
+            return '#6366f1';
           }}
-          maskColor="rgba(0, 0, 0, 0.85)"
+          maskColor="rgba(0, 0, 0, 0.8)"
         />
         <Background 
-          gap={40} 
-          size={1.5}
-          color="hsl(270 80% 60% / 0.15)"
-          className="opacity-60"
+          color="#64748b" 
+          gap={20} 
+          size={2}
+          className="opacity-40"
         />
       </ReactFlow>
     </div>
