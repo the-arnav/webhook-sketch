@@ -20,24 +20,42 @@ export const DescriptionNode = memo((props: NodeProps) => {
   };
 
   return (
-    <div className="canvas-node-description rounded-xl p-5 min-w-[260px] max-w-[300px] animate-fade-in">
+    <div className="canvas-node-description rounded-xl p-5 min-w-[280px] max-w-[320px] animate-fade-in relative">
       {/* Top handle for receiving connections from titles */}
       <Handle 
         type="target" 
         position={Position.Top} 
         id="top"
-        className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
+        style={{
+          background: 'var(--edge-secondary)',
+          border: '2px solid hsl(var(--background))',
+          width: '10px',
+          height: '10px',
+          boxShadow: '0 0 10px hsl(260 70% 50% / 0.4)'
+        }}
       />
       
       <div className="space-y-4 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 bg-slate-400/20 rounded-full flex items-center justify-center text-xs text-slate-300">
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs backdrop-blur-lg"
+               style={{ 
+                 background: 'var(--glass-bg)',
+                 border: '1px solid var(--glass-border)',
+                 color: 'hsl(var(--muted-foreground))'
+               }}>
             ●
           </div>
-          <span className="text-xs text-slate-400 font-medium tracking-wide">📄 Description</span>
+          <span className="text-xs font-medium tracking-wide px-3 py-1 rounded-full backdrop-blur-lg"
+                style={{ 
+                  background: 'var(--glass-bg)',
+                  border: '1px solid var(--glass-border)',
+                  color: 'hsl(var(--muted-foreground))'
+                }}>
+            📄 Description
+          </span>
         </div>
         
-        <p className="text-sm text-slate-200 leading-relaxed tracking-wide">
+        <p className="text-sm text-foreground leading-relaxed tracking-wide opacity-90">
           {data.description}
         </p>
 
@@ -46,7 +64,12 @@ export const DescriptionNode = memo((props: NodeProps) => {
           size="sm"
           variant="ghost"
           disabled={data.isLoading}
-          className="w-full text-xs text-slate-400 hover:text-white hover:bg-slate-500/20 border border-slate-400/30 disabled:opacity-50"
+          className="w-full text-xs backdrop-blur-lg border transition-all duration-300 hover:scale-105"
+          style={{ 
+            borderColor: 'var(--glass-border)',
+            color: 'hsl(var(--muted-foreground))',
+            background: 'var(--glass-bg)'
+          }}
         >
           <ChevronDown className="w-3 h-3 mr-1" />
           {data.isLoading ? 'Loading...' : 'Elaborate More'}
@@ -58,7 +81,13 @@ export const DescriptionNode = memo((props: NodeProps) => {
         type="source" 
         position={Position.Bottom} 
         id="bottom"
-        className="!bg-slate-400 !border-slate-300 !w-3 !h-3 !shadow-sm"
+        style={{
+          background: 'hsl(280 60% 45%)',
+          border: '2px solid hsl(var(--background))',
+          width: '10px',
+          height: '10px',
+          boxShadow: '0 0 8px hsl(280 60% 45% / 0.4)'
+        }}
       />
     </div>
   );
