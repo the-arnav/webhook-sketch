@@ -1,14 +1,57 @@
 import { useMemo, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { SearchBar } from '@/components/SearchBar'
-import { getCanvases, getChats, SavedCanvas, SavedChat } from '@/utils/storage'
+import { getCanvases, searchCanvases } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import { AuthModal } from '@/components/AuthModal'
 import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { toast } from 'sonner'
+import type { Canvas } from '@/lib/supabase'
 
 export default function Dashboard() {
-  const [results, setResults] = useState<{ canvases: SavedCanvas[]; chats: SavedChat[] }>()
-  const canvases = useMemo(() => results?.canvases ?? getCanvases().slice(0, 8), [results])
-  const chats = useMemo(() => results?.chats ?? getChats().slice(0, 8), [results])
+  const [canvases, setCanvases] = useState<Canvas[]>([])
+  const [loading, setLoading] = useState(true)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const { isAuthenticated } = useAuth()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadCanvases()
+    } else {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  const loadCanvases = async () => {
+    try {
+      const data = await getCanvases()
+      setCanvases(data.slice(0, 8)) // Show only recent 8
+    } catch (error) {
+      console.error('Failed to load canvases:', error)
+      toast.error('Failed to load canvases')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async (query: string) => {
+    if (!isAuthenticated) return
+    
+    if (!query.trim()) {
+      loadCanvases()
+      return
+    }
+
+    try {
+      const results = await searchCanvases(query)
+      setCanvases(results.slice(0, 8))
+    } catch (error) {
+      console.error('Search failed:', error)
+      toast.error('Search failed')
+    }
+  }
 
   return (
     <div className="min-h-screen flex bg-slate-950">
@@ -21,48 +64,55 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <SearchBar onResults={setResults} />
+        {isAuthenticated && (
+          <div className="w-full">
+            <input
+              type="text"
+              placeholder="Search canvases..."
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        )}
 
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-white/90 font-semibold">Recent Canvases</h2>
-            <Link to="/canvases" className="text-sm text-slate-300 hover:text-white">View all</Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {canvases.map(c => (
-              <Link key={c.id} to={`/canvas/${c.id}`} className="block group bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition">
-                <div className="text-white font-medium truncate">{c.title}</div>
-                <div className="text-xs text-slate-400 mt-1">{new Date(c.updatedAt).toLocaleString()}</div>
-                <div className="h-24 mt-3 rounded-md bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/5"></div>
-              </Link>
-            ))}
-            {canvases.length === 0 && (
-              <div className="text-slate-400">No canvases yet. Create your first mindmap.</div>
+            {isAuthenticated && (
+              <Link to="/canvases" className="text-sm text-slate-300 hover:text-white">View all</Link>
             )}
           </div>
+          
+          {!isAuthenticated ? (
+            <div className="text-center py-12">
+              <div className="text-slate-400 mb-4">Sign in to view and save your canvases</div>
+              <Button onClick={() => setAuthModalOpen(true)}>Sign In</Button>
+            </div>
+          ) : loading ? (
+            <div className="text-slate-400">Loading canvases...</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {canvases.map(c => (
+                <Link key={c.id} to={`/canvas/${c.id}`} className="block group bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition">
+                  <div className="text-white font-medium truncate">{c.title}</div>
+                  <div className="text-xs text-slate-400 mt-1">{new Date(c.updated_at).toLocaleString()}</div>
+                  <div className="h-24 mt-3 rounded-md bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/5"></div>
+                </Link>
+              ))}
+              {canvases.length === 0 && (
+                <div className="text-slate-400">No canvases yet. Create your first mindmap.</div>
+              )}
+            </div>
+            )}
         </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-white/90 font-semibold">Recent Chats</h2>
-            <Link to="/chats" className="text-sm text-slate-300 hover:text-white">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {chats.map(ch => (
-              <div key={ch.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
-                <div className="text-white/90 truncate">{ch.prompt}</div>
-                <div className="text-xs text-slate-400 mt-1 flex gap-3">
-                  <span>{new Date(ch.createdAt).toLocaleString()}</span>
-                  {ch.canvasId && <Link to={`/canvas/${ch.canvasId}`} className="hover:underline">Open canvas</Link>}
-                </div>
-              </div>
-            ))}
-            {chats.length === 0 && (
-              <div className="text-slate-400">No chats yet. Elaborate a node to start capturing history.</div>
-            )}
-          </div>
-        </section>
       </main>
+      
+      <AuthModal 
+        open={authModalOpen} 
+        onOpenChange={setAuthModalOpen}
+        onSuccess={() => setAuthModalOpen(false)}
+      />
     </div>
   )
 }

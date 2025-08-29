@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
 import { JSONUploader } from '@/components/JSONUploader';
+import { AuthModal } from '@/components/AuthModal';
 import { Button } from '@/components/ui/button';
 import { Save, Share2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateId, saveCanvas, listCanvases } from '@/utils/storage';
+import { saveCanvas as saveCanvasSupabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import type { Node, Edge } from '@xyflow/react';
 
 interface FlowchartData {
   itemNumber: number;
@@ -17,10 +20,14 @@ const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
   const [subject, setSubject] = useState<string>('');
   // Removed left prompt assistant; uploader is available via bottom bar only
-  const latestSnapshotRef = useRef<{ nodes: unknown[]; edges: unknown[] } | null>(null);
+  const latestSnapshotRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
   // Removed loading delay and progress; render updates immediately
   const [navOpen, setNavOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+
   // Force full-site dark mode
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -40,11 +47,73 @@ const Index = () => {
   };
 
   const handleSave = () => {
+    if (!flowchartData.length || !latestSnapshotRef.current) {
+      toast.error('No canvas data to save');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+
+    handleSaveToSupabase();
+  };
+
+  const handleSaveToSupabase = async () => {
     if (!flowchartData.length || !latestSnapshotRef.current) return;
-    const id = generateId('canvas');
-    const title = subject || 'Mindmap';
-    saveCanvas({
-      id,
+    
+    setSaving(true);
+    const title = subject || 'Untitled Mindmap';
+    
+    try {
+      const savedCanvas = await saveCanvasSupabase({
+        title,
+        subject,
+        data: {
+          nodes: latestSnapshotRef.current.nodes,
+          edges: latestSnapshotRef.current.edges,
+        },
+      });
+
+      if (savedCanvas) {
+        setIsSaved(true);
+        toast.success(`Canvas "${title}" saved successfully!`);
+      } else {
+        throw new Error('Failed to save canvas');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save canvas. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false);
+    // Auto-save after successful authentication
+    setTimeout(() => {
+      handleSaveToSupabase();
+    }, 500);
+  };
+
+  const handleSnapshot = (snapshot: { nodes: Node[]; edges: Edge[] }) => {
+    latestSnapshotRef.current = snapshot;
+    // Mark as unsaved when canvas changes
+    if (flowchartData.length > 0) {
+      setIsSaved(false);
+    }
+  };
+
+  // Legacy save function for backward compatibility (now saves to Supabase)
+  const handleLegacySave = () => {
+    if (!flowchartData.length || !latestSnapshotRef.current) return;
+    
+    // Use localStorage as fallback for unauthenticated users
+    const canvases = JSON.parse(localStorage.getItem('savedCanvases') || '[]');
+    const newCanvas = {
+      id: `canvas_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`,
       title,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -53,8 +122,12 @@ const Index = () => {
         edges: latestSnapshotRef.current.edges,
         subject,
       },
-    });
+    };
+    
+    canvases.unshift(newCanvas);
+    localStorage.setItem('savedCanvases', JSON.stringify(canvases));
     setIsSaved(true);
+    toast.success('Canvas saved locally');
   };
 
   const handleCopyJSON = async () => {
@@ -138,13 +211,15 @@ const Index = () => {
                   onClick={() => {
                     setFlowchartData([]);
                     setSubject('');
+                    setIsSaved(false);
                   }}
                   className="flex items-center gap-2"
                 >
                   Clear Canvas
                 </Button>
                 <Button onClick={handleSave} className="flex items-center gap-2" variant={isSaved ? 'secondary' : 'default'}>
-                  <Save className="w-4 h-4" /> {isSaved ? 'Saved' : 'Save'}
+                  <Save className="w-4 h-4" /> 
+                  {saving ? 'Saving...' : (isSaved ? 'Saved' : 'Save')}
                 </Button>
                 <Button
                   variant="outline"
@@ -175,8 +250,7 @@ const Index = () => {
             <FlowchartCanvas 
               data={flowchartData} 
               subject={subject}
-              // @ts-ignore expose snapshot
-              onSnapshot={(snap: { nodes: unknown[]; edges: unknown[] }) => { latestSnapshotRef.current = snap }}
+              onSnapshot={handleSnapshot}
             />
           </div>
 
@@ -189,11 +263,31 @@ const Index = () => {
 
         </div>
       </main>
+      
+      {/* Authentication Modal */}
+      <AuthModal 
+        open={authModalOpen} 
+        onOpenChange={setAuthModalOpen}
+        onSuccess={handleAuthSuccess}
+      />
+      
       {/* Footer */}
       <footer className="glass-panel border-t p-4">
         <div className="max-w-7xl mx-auto text-xs text-muted-foreground flex items-center justify-between">
           <span>MindMap Ai</span>
-          <span>Dark purple theme</span>
+          <div className="flex items-center gap-4">
+            {isAuthenticated ? (
+              <span className="text-green-400">● Signed in as {user?.email}</span>
+            ) : (
+              <button 
+                onClick={() => setAuthModalOpen(true)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sign in to save canvases
+              </button>
+            )}
+            <span>Dark purple theme</span>
+          </div>
         </div>
       </footer>
     </div>

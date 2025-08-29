@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutGrid, MessageSquare, PanelsTopLeft, Settings, Folder } from 'lucide-react'
+import { LayoutGrid, PanelsTopLeft, Settings, Folder } from 'lucide-react'
 
 export const Sidebar = () => {
   const linkBase = 'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors'
@@ -17,10 +17,6 @@ export const Sidebar = () => {
         <NavLink to="/canvases" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           <PanelsTopLeft className="w-4 h-4" />
           Saved Canvases
-        </NavLink>
-        <NavLink to="/chats" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
-          <MessageSquare className="w-4 h-4" />
-          Saved Chats
         </NavLink>
         <NavLink to="/folders" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           <Folder className="w-4 h-4" />
