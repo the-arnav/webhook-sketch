@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
-import { SearchBar } from '@/components/SearchBar'
-import { getCanvases, searchCanvases } from '@/lib/supabase'
+import { getCanvases, searchCanvases, getCanvas } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthModal } from '@/components/AuthModal'
 import { Button } from '@/components/ui/button'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import type { Canvas } from '@/lib/supabase'
@@ -15,6 +14,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -50,6 +50,25 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Search failed:', error)
       toast.error('Search failed')
+    }
+  }
+
+  const openCanvas = async (id: string) => {
+    try {
+      const canvas = await getCanvas(id)
+      if (canvas) {
+        // Navigate to the main canvas page with the loaded data
+        navigate('/new', { 
+          state: { 
+            canvasData: canvas.data,
+            subject: canvas.subject || canvas.title,
+            title: canvas.title,
+            canvasId: canvas.id
+          } 
+        })
+      }
+    } catch (error) {
+      toast.error('Failed to load canvas')
     }
   }
 
@@ -93,11 +112,11 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {canvases.map(c => (
-                <Link key={c.id} to={`/canvas/${c.id}`} className="block group bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition">
+                <div key={c.id} onClick={() => openCanvas(c.id)} className="block group bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition cursor-pointer">
                   <div className="text-white font-medium truncate">{c.title}</div>
                   <div className="text-xs text-slate-400 mt-1">{new Date(c.updated_at).toLocaleString()}</div>
                   <div className="h-24 mt-3 rounded-md bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/5"></div>
-                </Link>
+                </div>
               ))}
               {canvases.length === 0 && (
                 <div className="text-slate-400">No canvases yet. Create your first mindmap.</div>

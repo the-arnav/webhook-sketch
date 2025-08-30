@@ -9,7 +9,7 @@ export interface Canvas {
     nodes: Node[];
     edges: Edge[];
   };
-  user_id?: string;
+  user_id: string;
   tags?: string[];
   pinned?: boolean;
   created_at: string;

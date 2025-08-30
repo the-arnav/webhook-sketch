@@ -1,11 +1,11 @@
 import { Sidebar } from '@/components/Sidebar'
-import { getCanvases, updateCanvas, deleteCanvas as deleteCanvasSupabase, togglePinCanvas } from '@/lib/supabase'
+import { getCanvases, updateCanvas, deleteCanvas as deleteCanvasSupabase, togglePinCanvas, getCanvas } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthModal } from '@/components/AuthModal'
 import { useMemo, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Canvas } from '@/lib/supabase'
 
@@ -14,6 +14,7 @@ export default function CanvasList() {
   const [loading, setLoading] = useState(true)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   
   const pinned = useMemo(() => items.filter(i => i.pinned), [items])
   const others = useMemo(() => items.filter(i => !i.pinned), [items])
@@ -71,6 +72,25 @@ export default function CanvasList() {
     }
   }
 
+  const openCanvas = async (id: string) => {
+    try {
+      const canvas = await getCanvas(id)
+      if (canvas) {
+        // Navigate to the main canvas page with the loaded data
+        navigate('/new', { 
+          state: { 
+            canvasData: canvas.data,
+            subject: canvas.subject || canvas.title,
+            title: canvas.title,
+            canvasId: canvas.id
+          } 
+        })
+      }
+    } catch (error) {
+      toast.error('Failed to load canvas')
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex bg-slate-950">
@@ -113,9 +133,7 @@ export default function CanvasList() {
             <div className="text-xs text-slate-400 mt-1">{new Date(c.updated_at).toLocaleString()}</div>
             <div className="h-20 mt-3 rounded-md bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/5"></div>
             <div className="flex gap-2 mt-3">
-              <Link to={`/canvas/${c.id}`}>
-                <Button size="sm" variant="secondary">Open</Button>
-              </Link>
+              <Button size="sm" variant="secondary" onClick={() => openCanvas(c.id)}>Open</Button>
               <Button size="sm" variant="ghost" onClick={() => doPin(c.id)}>{c.pinned ? 'Unpin' : 'Pin'}</Button>
               <Button size="sm" variant="destructive" onClick={() => doDelete(c.id)}>Delete</Button>
             </div>
