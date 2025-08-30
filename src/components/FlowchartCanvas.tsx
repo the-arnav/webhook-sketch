@@ -269,8 +269,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     const laidOut = layoutGraph(nodes, edges);
     setNodes(laidOut);
     onSnapshot?.({ nodes: laidOut, edges });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edges]);
+  }, [nodes, edges, onSnapshot, layoutGraph, setNodes]);
 
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     // Prefer the specified shape: response[0].output.items

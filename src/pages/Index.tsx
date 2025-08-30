@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
 import { JSONUploader } from '@/components/JSONUploader';
 import { AuthModal } from '@/components/AuthModal';
 import { Button } from '@/components/ui/button';
 import { Save, Share2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { saveCanvas as saveCanvasSupabase } from '@/lib/supabase';
+import { saveCanvas as saveCanvasSupabase, updateCanvas } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import type { Node, Edge } from '@xyflow/react';
@@ -19,6 +20,7 @@ interface FlowchartData {
 const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
   const [subject, setSubject] = useState<string>('');
+  const [currentCanvasId, setCurrentCanvasId] = useState<string | null>(null);
   // Removed left prompt assistant; uploader is available via bottom bar only
   const latestSnapshotRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
   // Removed loading delay and progress; render updates immediately
@@ -27,6 +29,7 @@ const Index = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { user, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   // Force full-site dark mode
   useEffect(() => {
@@ -34,16 +37,46 @@ const Index = () => {
     localStorage.setItem('theme', 'dark');
   }, []);
 
+  // Load canvas data from navigation state (when opening saved canvas)
+  useEffect(() => {
+    if (location.state) {
+      const { canvasData, subject: loadedSubject, title, canvasId } = location.state as any;
+      if (canvasData && canvasData.nodes && canvasData.edges) {
+        // Convert the saved canvas data back to flowchart format
+        const convertedData = canvasData.nodes
+          .filter((node: Node) => node.type === 'title' || node.type === 'description')
+          .map((node: Node, index: number) => ({
+            itemNumber: node.data.itemNumber || index + 1,
+            title: node.data.title || `Item ${index + 1}`,
+            description: node.data.description || node.data.title || 'No description'
+          }));
+        
+        setFlowchartData(convertedData);
+        setSubject(loadedSubject || title || 'Loaded Canvas');
+        setCurrentCanvasId(canvasId || null);
+        setIsSaved(true); // Mark as saved since we just loaded it
+        
+        // Set the snapshot to the loaded data
+        latestSnapshotRef.current = {
+          nodes: canvasData.nodes,
+          edges: canvasData.edges
+        };
+      }
+    }
+  }, [location.state]);
+
   // Loading/progress removed
 
   // Any time the canvas changes (nodes/edges snapshot or subject), mark as unsaved
   useEffect(() => {
-    if (flowchartData.length) setIsSaved(false);
-  }, [flowchartData, subject]);
+    if (flowchartData.length && !location.state) setIsSaved(false);
+  }, [flowchartData, subject, location.state]);
 
   const handleDataLoad = (data: FlowchartData[], subjectText?: string) => {
     setFlowchartData(data);
     setSubject(subjectText || 'Main Topic');
+    setCurrentCanvasId(null); // Reset canvas ID when loading new data
+    setIsSaved(false);
   };
 
   const handleSave = () => {
@@ -67,20 +100,41 @@ const Index = () => {
     const title = subject || 'Untitled Mindmap';
     
     try {
-      const savedCanvas = await saveCanvasSupabase({
-        title,
-        subject,
-        data: {
-          nodes: latestSnapshotRef.current.nodes,
-          edges: latestSnapshotRef.current.edges,
-        },
-      });
-
-      if (savedCanvas) {
-        setIsSaved(true);
-        toast.success(`Canvas "${title}" saved successfully!`);
+      if (currentCanvasId) {
+        // Update existing canvas
+        const updatedCanvas = await updateCanvas(currentCanvasId, {
+          title,
+          subject,
+          data: {
+            nodes: latestSnapshotRef.current.nodes,
+            edges: latestSnapshotRef.current.edges,
+          },
+        });
+        
+        if (updatedCanvas) {
+          setIsSaved(true);
+          toast.success(`Canvas "${title}" updated successfully!`);
+        } else {
+          throw new Error('Failed to update canvas');
+        }
       } else {
-        throw new Error('Failed to save canvas');
+        // Create new canvas
+        const savedCanvas = await saveCanvasSupabase({
+          title,
+          subject,
+          data: {
+            nodes: latestSnapshotRef.current.nodes,
+            edges: latestSnapshotRef.current.edges,
+          },
+        });
+
+        if (savedCanvas) {
+          setCurrentCanvasId(savedCanvas.id);
+          setIsSaved(true);
+          toast.success(`Canvas "${title}" saved successfully!`);
+        } else {
+          throw new Error('Failed to save canvas');
+        }
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -101,7 +155,7 @@ const Index = () => {
   const handleSnapshot = (snapshot: { nodes: Node[]; edges: Edge[] }) => {
     latestSnapshotRef.current = snapshot;
     // Mark as unsaved when canvas changes
-    if (flowchartData.length > 0) {
+    if (flowchartData.length > 0 && !location.state) {
       setIsSaved(false);
     }
   };
@@ -211,6 +265,7 @@ const Index = () => {
                   onClick={() => {
                     setFlowchartData([]);
                     setSubject('');
+                    setCurrentCanvasId(null);
                     setIsSaved(false);
                   }}
                   className="flex items-center gap-2"
@@ -219,7 +274,7 @@ const Index = () => {
                 </Button>
                 <Button onClick={handleSave} className="flex items-center gap-2" variant={isSaved ? 'secondary' : 'default'}>
                   <Save className="w-4 h-4" /> 
-                  {saving ? 'Saving...' : (isSaved ? 'Saved' : 'Save')}
+                  {saving ? 'Saving...' : (isSaved ? (currentCanvasId ? 'Saved' : 'Saved') : (currentCanvasId ? 'Update' : 'Save'))}
                 </Button>
                 <Button
                   variant="outline"
