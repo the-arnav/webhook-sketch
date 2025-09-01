@@ -36,6 +36,148 @@ interface FlowchartCanvasProps {
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
+// Hierarchical tree layout algorithm
+const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
+  // Build parent-child relationships
+  const children: Record<string, string[]> = {};
+  const parents: Record<string, string> = {};
+  
+  edges.forEach(edge => {
+    if (!children[edge.source]) children[edge.source] = [];
+    children[edge.source].push(edge.target);
+    parents[edge.target] = edge.source;
+  });
+
+  // Find root nodes (nodes with no parents)
+  const rootNodes = nodes.filter(node => !parents[node.id]);
+  const positionedNodes: Record<string, { x: number; y: number }> = {};
+
+  // Configuration for layout
+  const config = {
+    nodeWidth: 300,
+    nodeHeight: 120,
+    levelSpacing: 200,
+    siblingSpacing: 80,
+    minSpacing: 60
+  };
+
+  // Calculate positions using modified Reingold-Tilford algorithm
+  const calculateSubtreePositions = (nodeId: string, level: number, parentX?: number): number => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return 0;
+
+    const nodeChildren = children[nodeId] || [];
+    
+    if (nodeChildren.length === 0) {
+      // Leaf node - position relative to parent or center
+      const x = parentX !== undefined ? parentX : 0;
+      positionedNodes[nodeId] = {
+        x,
+        y: level * config.levelSpacing
+      };
+      return config.nodeWidth;
+    }
+
+    // Calculate positions for children first
+    let childrenWidth = 0;
+    const childWidths: number[] = [];
+    
+    nodeChildren.forEach(childId => {
+      const width = calculateSubtreePositions(childId, level + 1);
+      childWidths.push(width);
+      childrenWidth += width + config.siblingSpacing;
+    });
+    
+    childrenWidth -= config.siblingSpacing; // Remove last spacing
+    
+    // Position children evenly
+    let currentX = -(childrenWidth / 2);
+    nodeChildren.forEach((childId, index) => {
+      const childWidth = childWidths[index];
+      const childCenterX = currentX + childWidth / 2;
+      
+      if (positionedNodes[childId]) {
+        positionedNodes[childId].x = childCenterX;
+      }
+      
+      currentX += childWidth + config.siblingSpacing;
+    });
+
+    // Position parent at center of children
+    const parentX = parentX !== undefined ? parentX : 0;
+    positionedNodes[nodeId] = {
+      x: parentX,
+      y: level * config.levelSpacing
+    };
+
+    return Math.max(childrenWidth, config.nodeWidth);
+  };
+
+  // Calculate positions for each root
+  rootNodes.forEach((rootNode, index) => {
+    const rootX = index * 400; // Space out multiple roots
+    calculateSubtreePositions(rootNode.id, 0, rootX);
+  });
+
+  // Apply repelling forces to prevent overlaps
+  const applyRepellingForces = () => {
+    const iterations = 3;
+    const repellingStrength = 50;
+    
+    for (let iter = 0; iter < iterations; iter++) {
+      const forces: Record<string, { x: number; y: number }> = {};
+      
+      // Initialize forces
+      Object.keys(positionedNodes).forEach(nodeId => {
+        forces[nodeId] = { x: 0, y: 0 };
+      });
+      
+      // Calculate repelling forces between all nodes
+      const nodeIds = Object.keys(positionedNodes);
+      for (let i = 0; i < nodeIds.length; i++) {
+        for (let j = i + 1; j < nodeIds.length; j++) {
+          const nodeA = nodeIds[i];
+          const nodeB = nodeIds[j];
+          const posA = positionedNodes[nodeA];
+          const posB = positionedNodes[nodeB];
+          
+          const dx = posB.x - posA.x;
+          const dy = posB.y - posA.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < config.minSpacing * 3) {
+            const force = repellingStrength / (distance + 1);
+            const forceX = (dx / distance) * force;
+            const forceY = (dy / distance) * force * 0.3; // Reduce vertical repelling
+            
+            forces[nodeA].x -= forceX;
+            forces[nodeA].y -= forceY;
+            forces[nodeB].x += forceX;
+            forces[nodeB].y += forceY;
+          }
+        }
+      }
+      
+      // Apply forces with damping
+      Object.keys(positionedNodes).forEach(nodeId => {
+        positionedNodes[nodeId].x += forces[nodeId].x * 0.1;
+        positionedNodes[nodeId].y += forces[nodeId].y * 0.1;
+      });
+    }
+  };
+
+  applyRepellingForces();
+
+  // Update node positions
+  return nodes.map(node => ({
+    ...node,
+    position: {
+      x: positionedNodes[node.id]?.x || node.position.x,
+      y: positionedNodes[node.id]?.y || node.position.y
+    }
+  }));
+};
+
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -91,22 +233,18 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       if (!parent) return prevNodes;
 
       const existingIds = new Set(prevNodes.map(n => n.id));
-      const verticalSpacing = 300;
-      const horizontalSpacing = 320;
-      const baseY = parent.position.y + verticalSpacing;
-
+      
+      // Create new nodes without positioning (will be positioned by layout algorithm)
       const newNodes: Node[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
         const id = `${parentNodeId}-${itemNumber}`;
         
         if (existingIds.has(id)) return null;
-
-        const x = parent.position.x + (idx - (items.length - 1) / 2) * horizontalSpacing;
         
         return {
           id,
           type: 'description',
-          position: { x, y: baseY },
+          position: { x: 0, y: 0 }, // Temporary position
           data: {
             description: item.description ?? 'No description',
             itemNumber,
@@ -119,17 +257,13 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         } as Node;
       }).filter(Boolean) as Node[];
 
-      return [...prevNodes, ...newNodes];
-    });
-
-    setEdges(prevEdges => {
-      const existingEdgeIds = new Set(prevEdges.map(e => e.id));
+      const updatedNodes = [...prevNodes, ...newNodes];
+      
+      // Create new edges
       const newEdges: Edge[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
         const targetId = `${parentNodeId}-${itemNumber}`;
         const id = `${parentNodeId}->${targetId}`;
-        
-        if (existingEdgeIds.has(id)) return null;
         
         return {
           id,
@@ -154,7 +288,17 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         } as Edge;
       }).filter(Boolean) as Edge[];
 
-      return [...prevEdges, ...newEdges];
+      setEdges(prevEdges => {
+        const allEdges = [...prevEdges, ...newEdges];
+        
+        // Apply tree layout to all nodes
+        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges);
+        setNodes(layoutNodes);
+        
+        return allEdges;
+      });
+
+      return updatedNodes;
     });
   }, [handleElaborate]);
 
@@ -170,12 +314,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       return { nodes, edges };
     }
 
-    // Create the main Subject node at the top center
+    // Create the main Subject node at the root
     const subjectNodeId = 'subject-node';
     nodes.push({
       id: subjectNodeId,
       type: 'subject',
-      position: { x: 0, y: 0 },
+      position: { x: 0, y: 0 }, // Will be positioned by layout algorithm
       data: { 
         subject: subject || 'Main Topic'
       },
@@ -183,26 +327,15 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       selectable: true,
     });
 
-    // Calculate layout for hierarchical structure with proper spacing
-    const titleRowY = 350;
-    const descRowY = 650;
-    const nodeSpacing = 400;
-    
-    // Center the nodes horizontally
-    const startX = -(data.length - 1) * nodeSpacing / 2;
-
     data.forEach((item, index) => {
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
       
-      // Position title nodes in a horizontal row
-      const titleX = startX + index * nodeSpacing;
-      
-      // Title node in middle row
+      // Title node
       nodes.push({
         id: titleNodeId,
         type: 'title',
-        position: { x: titleX, y: titleRowY },
+        position: { x: 0, y: 0 }, // Temporary position
         data: { 
           title: item.title,
           itemNumber: item.itemNumber,
@@ -213,11 +346,11 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         selectable: true,
       });
 
-      // Description node directly below its title
+      // Description node
       nodes.push({
         id: descNodeId,
         type: 'description',
-        position: { x: titleX, y: descRowY },
+        position: { x: 0, y: 0 }, // Temporary position
         data: { 
           description: item.description,
           itemNumber: item.itemNumber,
@@ -274,9 +407,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       });
     });
 
-    console.log('Generated nodes:', nodes);
+    // Apply tree layout algorithm to position nodes properly
+    const layoutNodes = calculateTreeLayout(nodes, edges);
+    
+    console.log('Generated nodes with layout:', layoutNodes);
     console.log('Generated edges:', edges);
-    return { nodes, edges };
+    return { nodes: layoutNodes, edges };
   }, [data, subject, handleElaborate]);
 
   // Update nodes and edges when data changes
@@ -285,6 +421,24 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     setNodes(initialNodes);
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+  // Apply layout whenever nodes or edges change (for dynamic updates)
+  useEffect(() => {
+    if (nodes.length > 0 && edges.length > 0) {
+      const layoutNodes = calculateTreeLayout(nodes, edges);
+      // Only update if positions actually changed to avoid infinite loops
+      const hasPositionChanges = layoutNodes.some((node, index) => {
+        const currentNode = nodes[index];
+        return !currentNode || 
+               Math.abs(node.position.x - currentNode.position.x) > 1 ||
+               Math.abs(node.position.y - currentNode.position.y) > 1;
+      });
+      
+      if (hasPositionChanges) {
+        setNodes(layoutNodes);
+      }
+    }
+  }, [edges.length]); // Only re-layout when edge count changes
 
   // Emit snapshots whenever nodes or edges change
   useEffect(() => {
@@ -336,13 +490,13 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ 
-          padding: 0.2, 
-          minZoom: 0.1, 
-          maxZoom: 1.5,
+          padding: 0.3, 
+          minZoom: 0.2, 
+          maxZoom: 1.2,
           includeHiddenNodes: false 
         }}
-        minZoom={0.1}
-        maxZoom={1.5}
+        minZoom={0.2}
+        maxZoom={1.2}
         defaultEdgeOptions={{
           type: 'straight',
           animated: false,
