@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
@@ -21,9 +22,7 @@ const Index = () => {
   const [flowchartData, setFlowchartData] = useState<FlowchartData[]>([]);
   const [subject, setSubject] = useState<string>('');
   const [currentCanvasId, setCurrentCanvasId] = useState<string | null>(null);
-  // Removed left prompt assistant; uploader is available via bottom bar only
   const latestSnapshotRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
-  // Removed loading delay and progress; render updates immediately
   const [navOpen, setNavOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -54,9 +53,8 @@ const Index = () => {
         setFlowchartData(convertedData);
         setSubject(loadedSubject || title || 'Loaded Canvas');
         setCurrentCanvasId(canvasId || null);
-        setIsSaved(true); // Mark as saved since we just loaded it
+        setIsSaved(true);
         
-        // Set the snapshot to the loaded data
         latestSnapshotRef.current = {
           nodes: canvasData.nodes,
           edges: canvasData.edges
@@ -65,9 +63,6 @@ const Index = () => {
     }
   }, [location.state]);
 
-  // Loading/progress removed
-
-  // Any time the canvas changes (nodes/edges snapshot or subject), mark as unsaved
   useEffect(() => {
     if (flowchartData.length && !location.state) setIsSaved(false);
   }, [flowchartData, subject, location.state]);
@@ -75,7 +70,7 @@ const Index = () => {
   const handleDataLoad = (data: FlowchartData[], subjectText?: string) => {
     setFlowchartData(data);
     setSubject(subjectText || 'Main Topic');
-    setCurrentCanvasId(null); // Reset canvas ID when loading new data
+    setCurrentCanvasId(null);
     setIsSaved(false);
   };
 
@@ -97,13 +92,12 @@ const Index = () => {
     if (!flowchartData.length || !latestSnapshotRef.current) return;
     
     setSaving(true);
-    const title = subject || 'Untitled Mindmap';
+    const canvasTitle = subject || 'Untitled Mindmap';
     
     try {
       if (currentCanvasId) {
-        // Update existing canvas
         const updatedCanvas = await updateCanvas(currentCanvasId, {
-          title,
+          title: canvasTitle,
           subject,
           data: {
             nodes: latestSnapshotRef.current.nodes,
@@ -113,14 +107,13 @@ const Index = () => {
         
         if (updatedCanvas) {
           setIsSaved(true);
-          toast.success(`Canvas "${title}" updated successfully!`);
+          toast.success(`Canvas "${canvasTitle}" updated successfully!`);
         } else {
           throw new Error('Failed to update canvas');
         }
       } else {
-        // Create new canvas
         const savedCanvas = await saveCanvasSupabase({
-          title,
+          title: canvasTitle,
           subject,
           data: {
             nodes: latestSnapshotRef.current.nodes,
@@ -131,7 +124,7 @@ const Index = () => {
         if (savedCanvas) {
           setCurrentCanvasId(savedCanvas.id);
           setIsSaved(true);
-          toast.success(`Canvas "${title}" saved successfully!`);
+          toast.success(`Canvas "${canvasTitle}" saved successfully!`);
         } else {
           throw new Error('Failed to save canvas');
         }
@@ -146,7 +139,6 @@ const Index = () => {
 
   const handleAuthSuccess = () => {
     setAuthModalOpen(false);
-    // Auto-save after successful authentication
     setTimeout(() => {
       handleSaveToSupabase();
     }, 500);
@@ -154,34 +146,9 @@ const Index = () => {
 
   const handleSnapshot = (snapshot: { nodes: Node[]; edges: Edge[] }) => {
     latestSnapshotRef.current = snapshot;
-    // Mark as unsaved when canvas changes
     if (flowchartData.length > 0 && !location.state) {
       setIsSaved(false);
     }
-  };
-
-  // Legacy save function for backward compatibility (now saves to Supabase)
-  const handleLegacySave = () => {
-    if (!flowchartData.length || !latestSnapshotRef.current) return;
-    
-    // Use localStorage as fallback for unauthenticated users
-    const canvases = JSON.parse(localStorage.getItem('savedCanvases') || '[]');
-    const newCanvas = {
-      id: `canvas_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`,
-      title,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      data: {
-        nodes: latestSnapshotRef.current.nodes,
-        edges: latestSnapshotRef.current.edges,
-        subject,
-      },
-    };
-    
-    canvases.unshift(newCanvas);
-    localStorage.setItem('savedCanvases', JSON.stringify(canvases));
-    setIsSaved(true);
-    toast.success('Canvas saved locally');
   };
 
   const handleCopyJSON = async () => {
@@ -238,23 +205,6 @@ const Index = () => {
                 <div className="mt-4 space-y-2">
                   <Button variant="ghost" className="w-full justify-start" onClick={() => { setFlowchartData([]); setSubject(''); setNavOpen(false); }}>Home</Button>
                   <Button variant="ghost" className="w-full justify-start" onClick={() => { window.location.reload(); }}>New Canvas</Button>
-                  <div className="pt-2">
-                    <div className="text-xs text-muted-foreground mb-1">Saved Canvases</div>
-                    <div className="max-h-60 overflow-auto space-y-1">
-                      {listCanvases().map(c => (
-                        <button key={c.id} className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent">
-                          {c.title}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-4">
-                    <div className="text-xs text-muted-foreground mb-1">Settings</div>
-                    <div className="grid grid-cols-1 gap-2 text-sm">
-                      <button className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-left">Toggle Minimap</button>
-                      <button className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-left">Toggle Edge Animation</button>
-                    </div>
-                  </div>
                 </div>
               </SheetContent>
             </Sheet>
@@ -274,7 +224,7 @@ const Index = () => {
                 </Button>
                 <Button onClick={handleSave} className="flex items-center gap-2" variant={isSaved ? 'secondary' : 'default'}>
                   <Save className="w-4 h-4" /> 
-                  {saving ? 'Saving...' : (isSaved ? (currentCanvasId ? 'Saved' : 'Saved') : (currentCanvasId ? 'Update' : 'Save'))}
+                  {saving ? 'Saving...' : (isSaved ? 'Saved' : (currentCanvasId ? 'Update' : 'Save'))}
                 </Button>
                 <Button
                   variant="outline"
@@ -298,7 +248,6 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex">
-        {/* Canvas Area - always mounted with animated background */}
         <div className="flex-1 relative">
           <div className="bg-animated" />
           <div className="h-full relative z-10">
@@ -309,24 +258,20 @@ const Index = () => {
             />
           </div>
 
-          {/* Bottom-centered prompt bar overlay (always available) */}
           <div className="absolute inset-x-0 bottom-0 flex justify-center pb-8 z-20">
             <div className="w-full max-w-3xl px-4">
               <JSONUploader onDataLoad={handleDataLoad} />
             </div>
           </div>
-
         </div>
       </main>
       
-      {/* Authentication Modal */}
       <AuthModal 
         open={authModalOpen} 
         onOpenChange={setAuthModalOpen}
         onSuccess={handleAuthSuccess}
       />
       
-      {/* Footer */}
       <footer className="glass-panel border-t p-4">
         <div className="max-w-7xl mx-auto text-xs text-muted-foreground flex items-center justify-between">
           <span>MindMap Ai</span>
