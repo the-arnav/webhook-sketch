@@ -17,6 +17,8 @@ import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
+import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-react';
 
 const nodeTypes = {
   subject: SubjectNode,
@@ -38,7 +40,6 @@ interface FlowchartCanvasProps {
 
 // Hierarchical tree layout algorithm
 const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
-  // Build parent-child relationships
   const children: Record<string, string[]> = {};
   const parents: Record<string, string> = {};
   
@@ -48,29 +49,25 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     parents[edge.target] = edge.source;
   });
 
-  // Find root nodes (nodes with no parents)
   const rootNodes = nodes.filter(node => !parents[node.id]);
   const positionedNodes: Record<string, { x: number; y: number }> = {};
 
-  // Configuration for layout
   const config = {
     nodeWidth: 300,
     nodeHeight: 120,
-    levelSpacing: 200,
-    siblingSpacing: 80,
-    minSpacing: 60
+    levelSpacing: 180,
+    siblingSpacing: 50,
+    minSpacing: 40
   };
 
-  // Calculate positions using modified Reingold-Tilford algorithm
-  const calculateSubtreePositions = (nodeId: string, level: number, parentX?: number): number => {
+  const calculateSubtreePositions = (nodeId: string, level: number, parentXPos?: number): number => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return 0;
 
     const nodeChildren = children[nodeId] || [];
     
     if (nodeChildren.length === 0) {
-      // Leaf node - position relative to parent or center
-      const x = parentX !== undefined ? parentX : 0;
+      const x = parentXPos !== undefined ? parentXPos : 0;
       positionedNodes[nodeId] = {
         x,
         y: level * config.levelSpacing
@@ -78,7 +75,6 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
       return config.nodeWidth;
     }
 
-    // Calculate positions for children first
     let childrenWidth = 0;
     const childWidths: number[] = [];
     
@@ -88,9 +84,8 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
       childrenWidth += width + config.siblingSpacing;
     });
     
-    childrenWidth -= config.siblingSpacing; // Remove last spacing
+    childrenWidth -= config.siblingSpacing;
     
-    // Position children evenly
     let currentX = -(childrenWidth / 2);
     nodeChildren.forEach((childId, index) => {
       const childWidth = childWidths[index];
@@ -103,8 +98,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
       currentX += childWidth + config.siblingSpacing;
     });
 
-    // Position parent at center of children
-    const parentX = parentX !== undefined ? parentX : 0;
+    const parentX = parentXPos !== undefined ? parentXPos : 0;
     positionedNodes[nodeId] = {
       x: parentX,
       y: level * config.levelSpacing
@@ -113,62 +107,11 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     return Math.max(childrenWidth, config.nodeWidth);
   };
 
-  // Calculate positions for each root
   rootNodes.forEach((rootNode, index) => {
-    const rootX = index * 400; // Space out multiple roots
+    const rootX = index * 400;
     calculateSubtreePositions(rootNode.id, 0, rootX);
   });
 
-  // Apply repelling forces to prevent overlaps
-  const applyRepellingForces = () => {
-    const iterations = 3;
-    const repellingStrength = 50;
-    
-    for (let iter = 0; iter < iterations; iter++) {
-      const forces: Record<string, { x: number; y: number }> = {};
-      
-      // Initialize forces
-      Object.keys(positionedNodes).forEach(nodeId => {
-        forces[nodeId] = { x: 0, y: 0 };
-      });
-      
-      // Calculate repelling forces between all nodes
-      const nodeIds = Object.keys(positionedNodes);
-      for (let i = 0; i < nodeIds.length; i++) {
-        for (let j = i + 1; j < nodeIds.length; j++) {
-          const nodeA = nodeIds[i];
-          const nodeB = nodeIds[j];
-          const posA = positionedNodes[nodeA];
-          const posB = positionedNodes[nodeB];
-          
-          const dx = posB.x - posA.x;
-          const dy = posB.y - posA.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (distance < config.minSpacing * 3) {
-            const force = repellingStrength / (distance + 1);
-            const forceX = (dx / distance) * force;
-            const forceY = (dy / distance) * force * 0.3; // Reduce vertical repelling
-            
-            forces[nodeA].x -= forceX;
-            forces[nodeA].y -= forceY;
-            forces[nodeB].x += forceX;
-            forces[nodeB].y += forceY;
-          }
-        }
-      }
-      
-      // Apply forces with damping
-      Object.keys(positionedNodes).forEach(nodeId => {
-        positionedNodes[nodeId].x += forces[nodeId].x * 0.1;
-        positionedNodes[nodeId].y += forces[nodeId].y * 0.1;
-      });
-    }
-  };
-
-  applyRepellingForces();
-
-  // Update node positions
   return nodes.map(node => ({
     ...node,
     position: {
@@ -183,7 +126,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Define handleElaborate function at the top level
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
       return;
@@ -234,17 +176,16 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
 
       const existingIds = new Set(prevNodes.map(n => n.id));
       
-      // Create new nodes without positioning (will be positioned by layout algorithm)
       const newNodes: Node[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
-        const id = `${parentNodeId}-${itemNumber}`;
+        const id = `${parentNodeId}-child-${itemNumber}`;
         
         if (existingIds.has(id)) return null;
         
         return {
           id,
           type: 'description',
-          position: { x: 0, y: 0 }, // Temporary position
+          position: { x: 0, y: 0 },
           data: {
             description: item.description ?? 'No description',
             itemNumber,
@@ -259,10 +200,9 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
 
       const updatedNodes = [...prevNodes, ...newNodes];
       
-      // Create new edges
       const newEdges: Edge[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
-        const targetId = `${parentNodeId}-${itemNumber}`;
+        const targetId = `${parentNodeId}-child-${itemNumber}`;
         const id = `${parentNodeId}->${targetId}`;
         
         return {
@@ -291,7 +231,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       setEdges(prevEdges => {
         const allEdges = [...prevEdges, ...newEdges];
         
-        // Apply tree layout to all nodes
         const layoutNodes = calculateTreeLayout(updatedNodes, allEdges);
         setNodes(layoutNodes);
         
@@ -302,7 +241,38 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     });
   }, [handleElaborate]);
 
-  // Generate nodes and edges from data - now handleElaborate is defined
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes(prevNodes => {
+      const nodesToDelete = new Set<string>();
+      
+      const findDescendants = (id: string) => {
+        nodesToDelete.add(id);
+        edges.forEach(edge => {
+          if (edge.source === id) {
+            findDescendants(edge.target);
+          }
+        });
+      };
+      
+      findDescendants(nodeId);
+      
+      return prevNodes.filter(node => !nodesToDelete.has(node.id));
+    });
+    
+    setEdges(prevEdges => {
+      return prevEdges.filter(edge => 
+        !edge.source.includes(nodeId) && !edge.target.includes(nodeId)
+      );
+    });
+  }, [edges]);
+
+  const handleReorganize = useCallback(() => {
+    if (nodes.length > 0 && edges.length > 0) {
+      const layoutNodes = calculateTreeLayout(nodes, edges);
+      setNodes(layoutNodes);
+    }
+  }, [nodes, edges, setNodes]);
+
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     console.log('Generating nodes from data:', data);
     
@@ -314,12 +284,11 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       return { nodes, edges };
     }
 
-    // Create the main Subject node at the root
     const subjectNodeId = 'subject-node';
     nodes.push({
       id: subjectNodeId,
       type: 'subject',
-      position: { x: 0, y: 0 }, // Will be positioned by layout algorithm
+      position: { x: 0, y: 0 },
       data: { 
         subject: subject || 'Main Topic'
       },
@@ -331,11 +300,10 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       const titleNodeId = `title-${item.itemNumber}`;
       const descNodeId = `desc-${item.itemNumber}`;
       
-      // Title node
       nodes.push({
         id: titleNodeId,
         type: 'title',
-        position: { x: 0, y: 0 }, // Temporary position
+        position: { x: 0, y: 0 },
         data: { 
           title: item.title,
           itemNumber: item.itemNumber,
@@ -346,11 +314,10 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         selectable: true,
       });
 
-      // Description node
       nodes.push({
         id: descNodeId,
         type: 'description',
-        position: { x: 0, y: 0 }, // Temporary position
+        position: { x: 0, y: 0 },
         data: { 
           description: item.description,
           itemNumber: item.itemNumber,
@@ -361,7 +328,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         selectable: true,
       });
 
-      // Edge from Subject to Title
       edges.push({
         id: `subject-title-${item.itemNumber}`,
         source: subjectNodeId,
@@ -383,7 +349,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         },
       });
 
-      // Edge from Title to Description
       edges.push({
         id: `title-desc-${item.itemNumber}`,
         source: titleNodeId,
@@ -407,7 +372,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       });
     });
 
-    // Apply tree layout algorithm to position nodes properly
     const layoutNodes = calculateTreeLayout(nodes, edges);
     
     console.log('Generated nodes with layout:', layoutNodes);
@@ -415,32 +379,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     return { nodes: layoutNodes, edges };
   }, [data, subject, handleElaborate]);
 
-  // Update nodes and edges when data changes
   useEffect(() => {
     console.log('Data changed, updating nodes and edges');
     setNodes(initialNodes);
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
-  // Apply layout whenever nodes or edges change (for dynamic updates)
-  useEffect(() => {
-    if (nodes.length > 0 && edges.length > 0) {
-      const layoutNodes = calculateTreeLayout(nodes, edges);
-      // Only update if positions actually changed to avoid infinite loops
-      const hasPositionChanges = layoutNodes.some((node, index) => {
-        const currentNode = nodes[index];
-        return !currentNode || 
-               Math.abs(node.position.x - currentNode.position.x) > 1 ||
-               Math.abs(node.position.y - currentNode.position.y) > 1;
-      });
-      
-      if (hasPositionChanges) {
-        setNodes(layoutNodes);
-      }
-    }
-  }, [edges.length]); // Only re-layout when edge count changes
-
-  // Emit snapshots whenever nodes or edges change
   useEffect(() => {
     if (nodes.length > 0 && onSnapshot) {
       console.log('Emitting snapshot with nodes:', nodes.length, 'edges:', edges.length);
@@ -477,16 +421,28 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     [setEdges]
   );
 
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    
+    if (node.type === 'subject') return;
+    
+    const confirmDelete = window.confirm(`Delete "${node.data.title || node.data.description}" and all its children?`);
+    if (confirmDelete) {
+      handleDeleteNode(node.id);
+    }
+  }, [handleDeleteNode]);
+
   console.log('Rendering FlowchartCanvas with nodes:', nodes.length, 'edges:', edges.length);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ 
@@ -521,6 +477,19 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           className="opacity-40"
         />
       </ReactFlow>
+      
+      {/* Reorganize Button */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+        <Button
+          onClick={handleReorganize}
+          variant="outline"
+          size="sm"
+          className="glass-panel flex items-center gap-2 bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Reorganize Layout
+        </Button>
+      </div>
     </div>
   );
 };
