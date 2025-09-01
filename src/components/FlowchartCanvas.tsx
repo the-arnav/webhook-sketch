@@ -38,8 +38,10 @@ interface FlowchartCanvasProps {
 
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Define handleElaborate function first
+  // Define handleElaborate function at the top level
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
       return;
@@ -156,7 +158,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     });
   }, [handleElaborate]);
 
-  // Generate nodes and edges from data
+  // Generate nodes and edges from data - now handleElaborate is defined
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     console.log('Generating nodes from data:', data);
     
@@ -276,9 +278,6 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     console.log('Generated edges:', edges);
     return { nodes, edges };
   }, [data, subject, handleElaborate]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Update nodes and edges when data changes
   useEffect(() => {
