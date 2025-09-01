@@ -39,192 +39,7 @@ interface FlowchartCanvasProps {
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
 
-  // Generate nodes and edges from data
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    console.log('Generating nodes from data:', data);
-    
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-
-    if (data.length === 0) {
-      console.log('No data provided, returning empty nodes/edges');
-      return { nodes, edges };
-    }
-
-    // Create the main Subject node at the top center
-    const subjectNodeId = 'subject-node';
-    nodes.push({
-      id: subjectNodeId,
-      type: 'subject',
-      position: { x: 0, y: 0 },
-      data: { 
-        subject: subject || 'Main Topic'
-      },
-      draggable: true,
-      selectable: true,
-    });
-
-    // Calculate layout for hierarchical structure with proper spacing
-    const titleRowY = 350;
-    const descRowY = 650;
-    const nodeSpacing = 400;
-    
-    // Center the nodes horizontally
-    const startX = -(data.length - 1) * nodeSpacing / 2;
-
-    data.forEach((item, index) => {
-      const titleNodeId = `title-${item.itemNumber}`;
-      const descNodeId = `desc-${item.itemNumber}`;
-      
-      // Position title nodes in a horizontal row
-      const titleX = startX + index * nodeSpacing;
-      
-      // Title node in middle row
-      nodes.push({
-        id: titleNodeId,
-        type: 'title',
-        position: { x: titleX, y: titleRowY },
-        data: { 
-          title: item.title,
-          itemNumber: item.itemNumber,
-          onElaborate: () => {},
-          isLoading: false
-        },
-        draggable: true,
-        selectable: true,
-      });
-
-      // Description node directly below its title
-      nodes.push({
-        id: descNodeId,
-        type: 'description',
-        position: { x: titleX, y: descRowY },
-        data: { 
-          description: item.description,
-          itemNumber: item.itemNumber,
-          onElaborate: () => {},
-          isLoading: false
-        },
-        draggable: true,
-        selectable: true,
-      });
-
-      // Edge from Subject to Title
-      edges.push({
-        id: `subject-title-${item.itemNumber}`,
-        source: subjectNodeId,
-        sourceHandle: 'bottom',
-        target: titleNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: true,
-        style: { 
-          stroke: 'hsl(270, 80%, 60%)', 
-          strokeWidth: 3,
-          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(270, 80%, 60%)',
-          width: 8,
-          height: 8,
-        },
-      });
-
-      // Edge from Title to Description
-      edges.push({
-        id: `title-desc-${item.itemNumber}`,
-        source: titleNodeId,
-        sourceHandle: 'bottom',
-        target: descNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(260, 70%, 50%)', 
-          strokeWidth: 2,
-          opacity: 0.8,
-          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(260, 70%, 50%)',
-          width: 6,
-          height: 6,
-        },
-      });
-    });
-
-    console.log('Generated nodes:', nodes);
-    console.log('Generated edges:', edges);
-    return { nodes, edges };
-  }, [data, subject]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  // Update nodes and edges when data changes
-  useEffect(() => {
-    console.log('Data changed, updating nodes and edges');
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
-
-  // Attach handlers to nodes and emit snapshots whenever nodes or edges change
-  useEffect(() => {
-    const updatedNodes = nodes.map(node => {
-      if (node.type === 'title' || node.type === 'description') {
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            onElaborate: handleElaborate,
-            isLoading: loadingNodes.has(node.id)
-          }
-        };
-      }
-      return node;
-    });
-
-    // Only update if nodes actually changed
-    if (JSON.stringify(updatedNodes) !== JSON.stringify(nodes)) {
-      setNodes(updatedNodes);
-    }
-
-    // Emit snapshot with complete node and edge data including positions and content
-    if (nodes.length > 0 && onSnapshot) {
-      console.log('Emitting snapshot with nodes:', nodes.length, 'edges:', edges.length);
-      const completeSnapshot = {
-        nodes: nodes.map(node => ({
-          ...node,
-          // Ensure all node data is preserved including positions and content
-          position: node.position,
-          data: {
-            ...node.data,
-            // Preserve all data fields
-            ...(node.data.subject && { subject: node.data.subject }),
-            ...(node.data.title && { title: node.data.title }),
-            ...(node.data.description && { description: node.data.description }),
-            ...(node.data.itemNumber && { itemNumber: node.data.itemNumber }),
-          }
-        })),
-        edges: edges.map(edge => ({
-          ...edge,
-          // Ensure all edge properties are preserved
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle,
-          style: edge.style,
-          animated: edge.animated,
-          type: edge.type,
-          markerEnd: edge.markerEnd
-        }))
-      };
-      onSnapshot(completeSnapshot);
-    }
-  }, [nodes, edges, loadingNodes, onSnapshot, handleElaborate, setNodes]);
-
+  // Define handleElaborate function first
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
       return;
@@ -341,19 +156,173 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     });
   }, [handleElaborate]);
 
+  // Generate nodes and edges from data
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    console.log('Generating nodes from data:', data);
+    
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    if (data.length === 0) {
+      console.log('No data provided, returning empty nodes/edges');
+      return { nodes, edges };
+    }
+
+    // Create the main Subject node at the top center
+    const subjectNodeId = 'subject-node';
+    nodes.push({
+      id: subjectNodeId,
+      type: 'subject',
+      position: { x: 0, y: 0 },
+      data: { 
+        subject: subject || 'Main Topic'
+      },
+      draggable: true,
+      selectable: true,
+    });
+
+    // Calculate layout for hierarchical structure with proper spacing
+    const titleRowY = 350;
+    const descRowY = 650;
+    const nodeSpacing = 400;
+    
+    // Center the nodes horizontally
+    const startX = -(data.length - 1) * nodeSpacing / 2;
+
+    data.forEach((item, index) => {
+      const titleNodeId = `title-${item.itemNumber}`;
+      const descNodeId = `desc-${item.itemNumber}`;
+      
+      // Position title nodes in a horizontal row
+      const titleX = startX + index * nodeSpacing;
+      
+      // Title node in middle row
+      nodes.push({
+        id: titleNodeId,
+        type: 'title',
+        position: { x: titleX, y: titleRowY },
+        data: { 
+          title: item.title,
+          itemNumber: item.itemNumber,
+          onElaborate: handleElaborate,
+          isLoading: false
+        },
+        draggable: true,
+        selectable: true,
+      });
+
+      // Description node directly below its title
+      nodes.push({
+        id: descNodeId,
+        type: 'description',
+        position: { x: titleX, y: descRowY },
+        data: { 
+          description: item.description,
+          itemNumber: item.itemNumber,
+          onElaborate: handleElaborate,
+          isLoading: false
+        },
+        draggable: true,
+        selectable: true,
+      });
+
+      // Edge from Subject to Title
+      edges.push({
+        id: `subject-title-${item.itemNumber}`,
+        source: subjectNodeId,
+        sourceHandle: 'bottom',
+        target: titleNodeId,
+        targetHandle: 'top',
+        type: 'straight',
+        animated: true,
+        style: { 
+          stroke: 'hsl(270, 80%, 60%)', 
+          strokeWidth: 3,
+          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(270, 80%, 60%)',
+          width: 8,
+          height: 8,
+        },
+      });
+
+      // Edge from Title to Description
+      edges.push({
+        id: `title-desc-${item.itemNumber}`,
+        source: titleNodeId,
+        sourceHandle: 'bottom',
+        target: descNodeId,
+        targetHandle: 'top',
+        type: 'straight',
+        animated: false,
+        style: { 
+          stroke: 'hsl(260, 70%, 50%)', 
+          strokeWidth: 2,
+          opacity: 0.8,
+          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(260, 70%, 50%)',
+          width: 6,
+          height: 6,
+        },
+      });
+    });
+
+    console.log('Generated nodes:', nodes);
+    console.log('Generated edges:', edges);
+    return { nodes, edges };
+  }, [data, subject, handleElaborate]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update nodes and edges when data changes
+  useEffect(() => {
+    console.log('Data changed, updating nodes and edges');
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+  // Emit snapshots whenever nodes or edges change
+  useEffect(() => {
+    if (nodes.length > 0 && onSnapshot) {
+      console.log('Emitting snapshot with nodes:', nodes.length, 'edges:', edges.length);
+      const completeSnapshot = {
+        nodes: nodes.map(node => ({
+          ...node,
+          position: node.position,
+          data: {
+            ...node.data,
+            ...(node.data.subject && { subject: node.data.subject }),
+            ...(node.data.title && { title: node.data.title }),
+            ...(node.data.description && { description: node.data.description }),
+            ...(node.data.itemNumber && { itemNumber: node.data.itemNumber }),
+          }
+        })),
+        edges: edges.map(edge => ({
+          ...edge,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle,
+          style: edge.style,
+          animated: edge.animated,
+          type: edge.type,
+          markerEnd: edge.markerEnd
+        }))
+      };
+      onSnapshot(completeSnapshot);
+    }
+  }, [nodes, edges, onSnapshot]);
+
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
-
-  // Handle node changes and emit snapshots
-  const handleNodesChange = useCallback((changes: any) => {
-    onNodesChange(changes);
-  }, [onNodesChange]);
-
-  const handleEdgesChange = useCallback((changes: any) => {
-    onEdgesChange(changes);
-  }, [onEdgesChange]);
 
   console.log('Rendering FlowchartCanvas with nodes:', nodes.length, 'edges:', edges.length);
 
@@ -362,8 +331,8 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
