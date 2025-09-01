@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { FlowchartCanvas } from '@/components/FlowchartCanvas';
 import { JSONUploader } from '@/components/JSONUploader';
 import { AuthModal } from '@/components/AuthModal';
+import { TopNavigation } from '@/components/TopNavigation';
 import { Button } from '@/components/ui/button';
 import { Save, Share2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +42,8 @@ const Index = () => {
     if (location.state) {
       const { canvasData, subject: loadedSubject, title, canvasId } = location.state as any;
       if (canvasData && canvasData.nodes && canvasData.edges) {
+        console.log('Loading canvas data from state:', canvasData);
+        
         // Convert the saved canvas data back to flowchart format
         const convertedData = canvasData.nodes
           .filter((node: Node) => node.type === 'title' || node.type === 'description')
@@ -55,10 +58,13 @@ const Index = () => {
         setCurrentCanvasId(canvasId || null);
         setIsSaved(true);
         
+        // Store the complete canvas data with all positions and content
         latestSnapshotRef.current = {
           nodes: canvasData.nodes,
           edges: canvasData.edges
         };
+        
+        console.log('Canvas loaded successfully with', convertedData.length, 'items');
       }
     }
   }, [location.state]);
@@ -68,6 +74,7 @@ const Index = () => {
   }, [flowchartData, subject, location.state]);
 
   const handleDataLoad = (data: FlowchartData[], subjectText?: string) => {
+    console.log('Loading new data:', data);
     setFlowchartData(data);
     setSubject(subjectText || 'Main Topic');
     setCurrentCanvasId(null);
@@ -94,37 +101,64 @@ const Index = () => {
     setSaving(true);
     const canvasTitle = subject || 'Untitled Mindmap';
     
+    console.log('Saving canvas with data:', {
+      title: canvasTitle,
+      subject,
+      nodes: latestSnapshotRef.current.nodes.length,
+      edges: latestSnapshotRef.current.edges.length
+    });
+    
     try {
+      const canvasData = {
+        title: canvasTitle,
+        subject,
+        data: {
+          nodes: latestSnapshotRef.current.nodes.map(node => ({
+            ...node,
+            // Ensure all node properties are saved including positions and data
+            position: node.position,
+            data: {
+              ...node.data,
+              // Explicitly preserve all content fields
+              ...(node.data.subject && { subject: node.data.subject }),
+              ...(node.data.title && { title: node.data.title }),
+              ...(node.data.description && { description: node.data.description }),
+              ...(node.data.itemNumber && { itemNumber: node.data.itemNumber }),
+            }
+          })),
+          edges: latestSnapshotRef.current.edges.map(edge => ({
+            ...edge,
+            // Ensure all edge properties are preserved
+            source: edge.source,
+            target: edge.target,
+            sourceHandle: edge.sourceHandle,
+            targetHandle: edge.targetHandle,
+            style: edge.style,
+            animated: edge.animated,
+            type: edge.type,
+            markerEnd: edge.markerEnd
+          }))
+        },
+      };
+
       if (currentCanvasId) {
-        const updatedCanvas = await updateCanvas(currentCanvasId, {
-          title: canvasTitle,
-          subject,
-          data: {
-            nodes: latestSnapshotRef.current.nodes,
-            edges: latestSnapshotRef.current.edges,
-          },
-        });
+        const updatedCanvas = await updateCanvas(currentCanvasId, canvasData);
         
         if (updatedCanvas) {
           setIsSaved(true);
           toast.success(`Canvas "${canvasTitle}" updated successfully!`);
+          console.log('Canvas updated successfully:', updatedCanvas);
         } else {
           throw new Error('Failed to update canvas');
         }
       } else {
-        const savedCanvas = await saveCanvasSupabase({
-          title: canvasTitle,
-          subject,
-          data: {
-            nodes: latestSnapshotRef.current.nodes,
-            edges: latestSnapshotRef.current.edges,
-          },
-        });
+        const savedCanvas = await saveCanvasSupabase(canvasData);
 
         if (savedCanvas) {
           setCurrentCanvasId(savedCanvas.id);
           setIsSaved(true);
           toast.success(`Canvas "${canvasTitle}" saved successfully!`);
+          console.log('Canvas saved successfully:', savedCanvas);
         } else {
           throw new Error('Failed to save canvas');
         }
@@ -145,6 +179,7 @@ const Index = () => {
   };
 
   const handleSnapshot = (snapshot: { nodes: Node[]; edges: Edge[] }) => {
+    console.log('Received snapshot with', snapshot.nodes.length, 'nodes and', snapshot.edges.length, 'edges');
     latestSnapshotRef.current = snapshot;
     if (flowchartData.length > 0 && !location.state) {
       setIsSaved(false);
@@ -193,55 +228,58 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Interactive JSON Flowchart Generator</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Sheet open={navOpen} onOpenChange={setNavOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">Menu</Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-80 glass-panel">
-                <SheetHeader>
-                  <SheetTitle>Navigation</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 space-y-2">
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setFlowchartData([]); setSubject(''); setNavOpen(false); }}>Home</Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { window.location.reload(); }}>New Canvas</Button>
-                </div>
-              </SheetContent>
-            </Sheet>
-            {flowchartData.length > 0 && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setFlowchartData([]);
-                    setSubject('');
-                    setCurrentCanvasId(null);
-                    setIsSaved(false);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  Clear Canvas
-                </Button>
-                <Button onClick={handleSave} className="flex items-center gap-2" variant={isSaved ? 'secondary' : 'default'}>
-                  <Save className="w-4 h-4" /> 
-                  {saving ? 'Saving...' : (isSaved ? 'Saved' : (currentCanvasId ? 'Update' : 'Save'))}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCopyJSON}
-                  className="flex items-center gap-2"
-                >
-                  <Copy className="w-4 h-4" /> Copy JSON
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleShare}
-                  className="flex items-center gap-2"
-                >
-                  <Share2 className="w-4 h-4" /> Share
-                </Button>
-              </>
-            )}
+          <div className="flex items-center gap-4">
+            <TopNavigation />
+            <div className="flex gap-2">
+              <Sheet open={navOpen} onOpenChange={setNavOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">Menu</Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-80 glass-panel">
+                  <SheetHeader>
+                    <SheetTitle>Navigation</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-2">
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { setFlowchartData([]); setSubject(''); setNavOpen(false); }}>Home</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { window.location.reload(); }}>New Canvas</Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+              {flowchartData.length > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFlowchartData([]);
+                      setSubject('');
+                      setCurrentCanvasId(null);
+                      setIsSaved(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    Clear Canvas
+                  </Button>
+                  <Button onClick={handleSave} className="flex items-center gap-2" variant={isSaved ? 'secondary' : 'default'}>
+                    <Save className="w-4 h-4" /> 
+                    {saving ? 'Saving...' : (isSaved ? 'Saved' : (currentCanvasId ? 'Update' : 'Save'))}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyJSON}
+                    className="flex items-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" /> Copy JSON
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleShare}
+                    className="flex items-center gap-2"
+                  >
+                    <Share2 className="w-4 h-4" /> Share
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>

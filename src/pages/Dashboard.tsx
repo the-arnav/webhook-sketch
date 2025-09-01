@@ -1,6 +1,7 @@
 
 import { useMemo, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
+import { TopNavigation } from '@/components/TopNavigation'
 import { getCanvases, searchCanvases, getCanvas } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthModal } from '@/components/AuthModal'
@@ -154,14 +155,17 @@ export default function Dashboard() {
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       <main className="flex-1 p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back{isAuthenticated && user ? `, ${user.email?.split('@')[0]}` : ''}!
-          </h1>
-          <p className="text-muted-foreground">
-            Create, organize, and explore your mind maps with AI assistance
-          </p>
+        {/* Header with Navigation */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              Welcome back{isAuthenticated && user ? `, ${user.email?.split('@')[0]}` : ''}!
+            </h1>
+            <p className="text-muted-foreground">
+              Create, organize, and explore your mind maps with AI assistance
+            </p>
+          </div>
+          <TopNavigation />
         </div>
 
         {!isAuthenticated ? (
