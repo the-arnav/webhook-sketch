@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { Node, Edge } from '@xyflow/react';
 
@@ -50,7 +51,7 @@ export async function saveCanvas(canvasData: CreateCanvasData): Promise<Canvas |
       .insert({
         title: canvasData.title,
         subject: canvasData.subject,
-        data: canvasData.data,
+        data: canvasData.data as any, // Type assertion for Json compatibility
         user_id: user.id,
         tags: canvasData.tags || [],
       })
@@ -62,7 +63,11 @@ export async function saveCanvas(canvasData: CreateCanvasData): Promise<Canvas |
       throw error;
     }
 
-    return data;
+    // Convert the returned data to Canvas type
+    return {
+      ...data,
+      data: data.data as { nodes: Node[]; edges: Edge[] }
+    } as Canvas;
   } catch (error) {
     console.error('Failed to save canvas:', error);
     return null;
@@ -71,12 +76,19 @@ export async function saveCanvas(canvasData: CreateCanvasData): Promise<Canvas |
 
 export async function updateCanvas(id: string, updates: UpdateCanvasData): Promise<Canvas | null> {
   try {
+    const updateData: any = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Convert data field to Json if it exists
+    if (updates.data) {
+      updateData.data = updates.data as any;
+    }
+
     const { data, error } = await supabase
       .from('canvases')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -86,7 +98,11 @@ export async function updateCanvas(id: string, updates: UpdateCanvasData): Promi
       throw error;
     }
 
-    return data;
+    // Convert the returned data to Canvas type
+    return {
+      ...data,
+      data: data.data as { nodes: Node[]; edges: Edge[] }
+    } as Canvas;
   } catch (error) {
     console.error('Failed to update canvas:', error);
     return null;
@@ -105,7 +121,11 @@ export async function getCanvases(): Promise<Canvas[]> {
       throw error;
     }
 
-    return data || [];
+    // Convert the returned data to Canvas[] type
+    return (data || []).map(item => ({
+      ...item,
+      data: item.data as { nodes: Node[]; edges: Edge[] }
+    })) as Canvas[];
   } catch (error) {
     console.error('Failed to fetch canvases:', error);
     return [];
@@ -125,7 +145,11 @@ export async function getCanvas(id: string): Promise<Canvas | null> {
       throw error;
     }
 
-    return data;
+    // Convert the returned data to Canvas type
+    return {
+      ...data,
+      data: data.data as { nodes: Node[]; edges: Edge[] }
+    } as Canvas;
   } catch (error) {
     console.error('Failed to fetch canvas:', error);
     return null;
@@ -197,7 +221,11 @@ export async function searchCanvases(query: string): Promise<Canvas[]> {
       throw error;
     }
 
-    return data || [];
+    // Convert the returned data to Canvas[] type
+    return (data || []).map(item => ({
+      ...item,
+      data: item.data as { nodes: Node[]; edges: Edge[] }
+    })) as Canvas[];
   } catch (error) {
     console.error('Failed to search canvases:', error);
     return [];
