@@ -62,7 +62,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
   };
 
   // Calculate positions using modified Reingold-Tilford algorithm
-  const calculateSubtreePositions = (nodeId: string, level: number, parentXPos?: number): number => {
+  const calculateSubtreePositions = (nodeId: string, level: number, parentX?: number): number => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return 0;
 
@@ -70,7 +70,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     
     if (nodeChildren.length === 0) {
       // Leaf node - position relative to parent or center
-      const x = parentXPos !== undefined ? parentXPos : 0;
+      const x = parentX !== undefined ? parentX : 0;
       positionedNodes[nodeId] = {
         x,
         y: level * config.levelSpacing
@@ -104,7 +104,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     });
 
     // Position parent at center of children
-    const parentX = parentXPos !== undefined ? parentXPos : 0;
+    const parentX = parentX !== undefined ? parentX : 0;
     positionedNodes[nodeId] = {
       x: parentX,
       y: level * config.levelSpacing
