@@ -66,7 +66,7 @@ export async function saveCanvas(canvasData: CreateCanvasData): Promise<Canvas |
     // Convert the returned data to Canvas type
     return {
       ...data,
-      data: data.data as { nodes: Node[]; edges: Edge[] }
+      data: data.data as unknown as { nodes: Node[]; edges: Edge[] }
     } as Canvas;
   } catch (error) {
     console.error('Failed to save canvas:', error);
@@ -101,7 +101,7 @@ export async function updateCanvas(id: string, updates: UpdateCanvasData): Promi
     // Convert the returned data to Canvas type
     return {
       ...data,
-      data: data.data as { nodes: Node[]; edges: Edge[] }
+      data: data.data as unknown as { nodes: Node[]; edges: Edge[] }
     } as Canvas;
   } catch (error) {
     console.error('Failed to update canvas:', error);
@@ -124,7 +124,7 @@ export async function getCanvases(): Promise<Canvas[]> {
     // Convert the returned data to Canvas[] type
     return (data || []).map(item => ({
       ...item,
-      data: item.data as { nodes: Node[]; edges: Edge[] }
+      data: item.data as unknown as { nodes: Node[]; edges: Edge[] }
     })) as Canvas[];
   } catch (error) {
     console.error('Failed to fetch canvases:', error);
@@ -148,7 +148,7 @@ export async function getCanvas(id: string): Promise<Canvas | null> {
     // Convert the returned data to Canvas type
     return {
       ...data,
-      data: data.data as { nodes: Node[]; edges: Edge[] }
+      data: data.data as unknown as { nodes: Node[]; edges: Edge[] }
     } as Canvas;
   } catch (error) {
     console.error('Failed to fetch canvas:', error);
@@ -224,7 +224,7 @@ export async function searchCanvases(query: string): Promise<Canvas[]> {
     // Convert the returned data to Canvas[] type
     return (data || []).map(item => ({
       ...item,
-      data: item.data as { nodes: Node[]; edges: Edge[] }
+      data: item.data as unknown as { nodes: Node[]; edges: Edge[] }
     })) as Canvas[];
   } catch (error) {
     console.error('Failed to search canvases:', error);
