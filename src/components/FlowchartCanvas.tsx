@@ -38,7 +38,7 @@ interface FlowchartCanvasProps {
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
-// Hierarchical tree layout algorithm
+// Simple hierarchical layout for proper flowchart structure
 const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
   const children: Record<string, string[]> = {};
   const parents: Record<string, string> = {};
@@ -49,67 +49,54 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     parents[edge.target] = edge.source;
   });
 
-  const rootNodes = nodes.filter(node => !parents[node.id]);
   const positionedNodes: Record<string, { x: number; y: number }> = {};
-
   const config = {
     nodeWidth: 300,
-    nodeHeight: 120,
-    levelSpacing: 180,
-    siblingSpacing: 50,
-    minSpacing: 40
+    nodeHeight: 150,
+    levelSpacing: 200,
+    siblingSpacing: 350
   };
 
-  const calculateSubtreePositions = (nodeId: string, level: number, parentXPos?: number): number => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return 0;
+  // Find root node (subject)
+  const rootNode = nodes.find(node => node.type === 'subject');
+  if (!rootNode) return nodes;
 
-    const nodeChildren = children[nodeId] || [];
-    
-    if (nodeChildren.length === 0) {
-      const x = parentXPos !== undefined ? parentXPos : 0;
-      positionedNodes[nodeId] = {
-        x,
-        y: level * config.levelSpacing
-      };
-      return config.nodeWidth;
-    }
+  // Position root at center
+  positionedNodes[rootNode.id] = { x: 0, y: 0 };
 
-    let childrenWidth = 0;
-    const childWidths: number[] = [];
+  // Get direct children of root (title nodes)
+  const titleChildren = children[rootNode.id] || [];
+  
+  // Position title nodes horizontally below subject
+  titleChildren.forEach((titleId, index) => {
+    const totalWidth = (titleChildren.length - 1) * config.siblingSpacing;
+    const startX = -totalWidth / 2;
+    const x = startX + (index * config.siblingSpacing);
     
-    nodeChildren.forEach(childId => {
-      const width = calculateSubtreePositions(childId, level + 1);
-      childWidths.push(width);
-      childrenWidth += width + config.siblingSpacing;
-    });
-    
-    childrenWidth -= config.siblingSpacing;
-    
-    let currentX = -(childrenWidth / 2);
-    nodeChildren.forEach((childId, index) => {
-      const childWidth = childWidths[index];
-      const childCenterX = currentX + childWidth / 2;
-      
-      if (positionedNodes[childId]) {
-        positionedNodes[childId].x = childCenterX;
-      }
-      
-      currentX += childWidth + config.siblingSpacing;
-    });
-
-    const parentX = parentXPos !== undefined ? parentXPos : 0;
-    positionedNodes[nodeId] = {
-      x: parentX,
-      y: level * config.levelSpacing
+    positionedNodes[titleId] = {
+      x: x,
+      y: config.levelSpacing
     };
 
-    return Math.max(childrenWidth, config.nodeWidth);
-  };
+    // Position description nodes directly below their title nodes
+    const descChildren = children[titleId] || [];
+    descChildren.forEach((descId, descIndex) => {
+      positionedNodes[descId] = {
+        x: x,
+        y: config.levelSpacing * 2
+      };
 
-  rootNodes.forEach((rootNode, index) => {
-    const rootX = index * 400;
-    calculateSubtreePositions(rootNode.id, 0, rootX);
+      // Position elaborated child nodes below description nodes
+      const elaboratedChildren = children[descId] || [];
+      elaboratedChildren.forEach((childId, childIndex) => {
+        const childTotalWidth = (elaboratedChildren.length - 1) * 280;
+        const childStartX = x - childTotalWidth / 2;
+        positionedNodes[childId] = {
+          x: childStartX + (childIndex * 280),
+          y: config.levelSpacing * 3
+        };
+      });
+    });
   });
 
   return nodes.map(node => ({
