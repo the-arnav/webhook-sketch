@@ -18,7 +18,8 @@ import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const nodeTypes = {
   subject: SubjectNode,
@@ -39,7 +40,7 @@ interface FlowchartCanvasProps {
 }
 
 // Simple hierarchical layout for proper flowchart structure
-const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
+const calculateTreeLayout = (nodes: Node[], edges: Edge[], customSpacing?: number) => {
   const children: Record<string, string[]> = {};
   const parents: Record<string, string> = {};
   
@@ -54,7 +55,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
     nodeWidth: 300,
     nodeHeight: 150,
     levelSpacing: 200,
-    siblingSpacing: 350
+    siblingSpacing: customSpacing || 350
   };
 
   // Find root node (subject)
@@ -109,6 +110,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[]) => {
 };
 
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
+  const { nodeSpacing } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -218,7 +220,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       setEdges(prevEdges => {
         const allEdges = [...prevEdges, ...newEdges];
         
-        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges);
+        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges, nodeSpacing);
         setNodes(layoutNodes);
         
         return allEdges;
@@ -255,10 +257,35 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
 
   const handleReorganize = useCallback(() => {
     if (nodes.length > 0 && edges.length > 0) {
-      const layoutNodes = calculateTreeLayout(nodes, edges);
+      const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
       setNodes(layoutNodes);
     }
-  }, [nodes, edges, setNodes]);
+  }, [nodes, edges, setNodes, nodeSpacing]);
+
+  const handleTidyUp = useCallback(() => {
+    if (nodes.length > 0 && edges.length > 0) {
+      // Enhanced tidy up with better spacing and alignment
+      const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
+      
+      // Add smooth animation by using fitView after layout
+      setNodes(layoutNodes);
+      
+      // Trigger a small delay and then fit view for better visual effect
+      setTimeout(() => {
+        const reactFlowInstance = document.querySelector('.react-flow');
+        if (reactFlowInstance) {
+          const event = new CustomEvent('fitView', { 
+            detail: { 
+              padding: 0.3, 
+              duration: 800,
+              includeHiddenNodes: false 
+            } 
+          });
+          reactFlowInstance.dispatchEvent(event);
+        }
+      }, 100);
+    }
+  }, [nodes, edges, setNodes, nodeSpacing]);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     console.log('Generating nodes from data:', data);
@@ -359,12 +386,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       });
     });
 
-    const layoutNodes = calculateTreeLayout(nodes, edges);
+    const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
     
     console.log('Generated nodes with layout:', layoutNodes);
     console.log('Generated edges:', edges);
     return { nodes: layoutNodes, edges };
-  }, [data, subject, handleElaborate]);
+  }, [data, subject, handleElaborate, nodeSpacing]);
 
   useEffect(() => {
     console.log('Data changed, updating nodes and edges');
@@ -465,8 +492,8 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         />
       </ReactFlow>
       
-      {/* Reorganize Button */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+      {/* Control Buttons */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 flex gap-3">
         <Button
           onClick={handleReorganize}
           variant="outline"
@@ -474,7 +501,16 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           className="glass-panel flex items-center gap-2 bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80"
         >
           <RotateCcw className="w-4 h-4" />
-          Reorganize Layout
+          Reorganize
+        </Button>
+        <Button
+          onClick={handleTidyUp}
+          variant="outline"
+          size="sm"
+          className="glass-panel flex items-center gap-2 bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80"
+        >
+          <Sparkles className="w-4 h-4" />
+          Tidy Up
         </Button>
       </div>
     </div>
