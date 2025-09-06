@@ -40,7 +40,7 @@ interface FlowchartCanvasProps {
 }
 
 // Simple hierarchical layout for proper flowchart structure
-const calculateTreeLayout = (nodes: Node[], edges: Edge[], customSpacing?: number) => {
+const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpacing?: number, customVerticalSpacing?: number) => {
   const children: Record<string, string[]> = {};
   const parents: Record<string, string> = {};
   
@@ -54,8 +54,8 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customSpacing?: numbe
   const config = {
     nodeWidth: 300,
     nodeHeight: 150,
-    levelSpacing: 200,
-    siblingSpacing: customSpacing || 350
+    levelSpacing: customVerticalSpacing || 200,
+    siblingSpacing: customHorizontalSpacing || 350
   };
 
   // Find root node (subject)
@@ -110,7 +110,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customSpacing?: numbe
 };
 
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
-  const { nodeSpacing } = useSettings();
+  const { horizontalSpacing, verticalSpacing } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -220,7 +220,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       setEdges(prevEdges => {
         const allEdges = [...prevEdges, ...newEdges];
         
-        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges, nodeSpacing);
+        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges, horizontalSpacing, verticalSpacing);
         setNodes(layoutNodes);
         
         return allEdges;
@@ -257,15 +257,15 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
 
   const handleReorganize = useCallback(() => {
     if (nodes.length > 0 && edges.length > 0) {
-      const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
+      const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
       setNodes(layoutNodes);
     }
-  }, [nodes, edges, setNodes, nodeSpacing]);
+  }, [nodes, edges, setNodes, horizontalSpacing, verticalSpacing]);
 
   const handleTidyUp = useCallback(() => {
     if (nodes.length > 0 && edges.length > 0) {
       // Enhanced tidy up with better spacing and alignment
-      const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
+      const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
       
       // Add smooth animation by using fitView after layout
       setNodes(layoutNodes);
@@ -285,7 +285,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         }
       }, 100);
     }
-  }, [nodes, edges, setNodes, nodeSpacing]);
+  }, [nodes, edges, setNodes, horizontalSpacing, verticalSpacing]);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     console.log('Generating nodes from data:', data);
@@ -386,12 +386,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       });
     });
 
-    const layoutNodes = calculateTreeLayout(nodes, edges, nodeSpacing);
+    const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
     
     console.log('Generated nodes with layout:', layoutNodes);
     console.log('Generated edges:', edges);
     return { nodes: layoutNodes, edges };
-  }, [data, subject, handleElaborate, nodeSpacing]);
+  }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
 
   useEffect(() => {
     console.log('Data changed, updating nodes and edges');
@@ -492,8 +492,8 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         />
       </ReactFlow>
       
-      {/* Control Buttons */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 flex gap-3">
+      {/* Control Buttons - Positioned to avoid chatbox overlap */}
+      <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
         <Button
           onClick={handleReorganize}
           variant="outline"

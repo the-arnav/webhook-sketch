@@ -23,7 +23,7 @@ const themePresets = [
 ];
 
 export default function Settings() {
-  const { themeColor, nodeSpacing, setThemeColor, setNodeSpacing } = useSettings();
+  const { themeColor, horizontalSpacing, verticalSpacing, setThemeColor, setHorizontalSpacing, setVerticalSpacing } = useSettings();
   const { user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -107,12 +107,12 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div>
                 <Label className="text-sm font-medium text-foreground">
-                  Node Spacing: {nodeSpacing}px
+                  Horizontal Spacing: {horizontalSpacing}px
                 </Label>
                 <div className="mt-3">
                   <Slider
-                    value={[nodeSpacing]}
-                    onValueChange={(value) => setNodeSpacing(value[0])}
+                    value={[horizontalSpacing]}
+                    onValueChange={(value) => setHorizontalSpacing(value[0])}
                     min={200}
                     max={600}
                     step={50}
@@ -121,6 +121,26 @@ export default function Settings() {
                   <div className="flex justify-between text-xs text-muted-foreground mt-2">
                     <span>Compact (200px)</span>
                     <span>Spacious (600px)</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-foreground">
+                  Vertical Spacing: {verticalSpacing}px
+                </Label>
+                <div className="mt-3">
+                  <Slider
+                    value={[verticalSpacing]}
+                    onValueChange={(value) => setVerticalSpacing(value[0])}
+                    min={150}
+                    max={400}
+                    step={25}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>Tight (150px)</span>
+                    <span>Spaced (400px)</span>
                   </div>
                 </div>
               </div>
