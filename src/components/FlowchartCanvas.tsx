@@ -55,7 +55,8 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpaci
     nodeWidth: 300,
     nodeHeight: 150,
     levelSpacing: customVerticalSpacing || 200,
-    siblingSpacing: customHorizontalSpacing || 350
+    siblingSpacing: customHorizontalSpacing || 350,
+    childSpacing: 160 // Spacing between child nodes vertically
   };
 
   // Find root node (subject)
@@ -65,47 +66,43 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpaci
   // Position root at center
   positionedNodes[rootNode.id] = { x: 0, y: 0 };
 
-  // Get direct children of root (title nodes)
-  const titleChildren = children[rootNode.id] || [];
-  
-  // Position title nodes horizontally below subject
-  titleChildren.forEach((titleId, index) => {
-    const totalWidth = (titleChildren.length - 1) * config.siblingSpacing;
-    const startX = -totalWidth / 2;
-    const x = startX + (index * config.siblingSpacing);
+  // Recursive function to position nodes
+  const positionNodeAndChildren = (nodeId: string, parentX: number, parentY: number, level: number) => {
+    const nodeChildren = children[nodeId] || [];
     
-    positionedNodes[titleId] = {
-      x: x,
-      y: config.levelSpacing
-    };
+    nodeChildren.forEach((childId, index) => {
+      const childNode = nodes.find(n => n.id === childId);
+      if (!childNode) return;
 
-    // Position description nodes directly below their title nodes
-    const descChildren = children[titleId] || [];
-    descChildren.forEach((descId, descIndex) => {
-      positionedNodes[descId] = {
-        x: x,
-        y: config.levelSpacing * 2
-      };
+      let x = parentX;
+      let y = parentY;
 
-      // Position elaborated child nodes vertically below description nodes
-      const elaboratedChildren = children[descId] || [];
-      elaboratedChildren.forEach((childId, childIndex) => {
-        positionedNodes[childId] = {
-          x: x, // Same x position as parent (vertically aligned)
-          y: config.levelSpacing * 3 + (childIndex * (config.levelSpacing * 0.8)) // Vertically stacked
-        };
-        
-        // Handle deeper nested children
-        const deeperChildren = children[childId] || [];
-        deeperChildren.forEach((deepChildId, deepIndex) => {
-          positionedNodes[deepChildId] = {
-            x: x,
-            y: config.levelSpacing * 4 + (childIndex * (config.levelSpacing * 0.8)) + (deepIndex * (config.levelSpacing * 0.6))
-          };
-        });
-      });
+      // Different positioning logic based on node type and level
+      if (level === 1) {
+        // Title nodes - spread horizontally
+        const totalWidth = (nodeChildren.length - 1) * config.siblingSpacing;
+        const startX = parentX - totalWidth / 2;
+        x = startX + (index * config.siblingSpacing);
+        y = parentY + config.levelSpacing;
+      } else if (level === 2) {
+        // Description nodes - directly below title nodes
+        x = parentX;
+        y = parentY + config.levelSpacing;
+      } else {
+        // Child nodes from elaborate - vertically stacked below parent
+        x = parentX;
+        y = parentY + config.levelSpacing + (index * config.childSpacing);
+      }
+
+      positionedNodes[childId] = { x, y };
+      
+      // Recursively position children of this node
+      positionNodeAndChildren(childId, x, y, level + 1);
     });
-  });
+  };
+
+  // Start positioning from root
+  positionNodeAndChildren(rootNode.id, 0, 0, 0);
 
   return nodes.map(node => ({
     ...node,
