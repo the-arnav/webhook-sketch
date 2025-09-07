@@ -177,78 +177,88 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       ? responseJson[0].output.items
       : (responseJson?.output?.items || responseJson?.items || (Array.isArray(responseJson) ? responseJson : []));
 
-    if (!Array.isArray(items) || items.length === 0) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log('No items found in response:', responseJson);
+      return;
+    }
 
-    setNodes(prevNodes => {
-      const parent = prevNodes.find(n => n.id === parentNodeId);
-      if (!parent) return prevNodes;
+    console.log('Processing elaborate response with', items.length, 'items');
 
-      const existingIds = new Set(prevNodes.map(n => n.id));
+    // Create new child nodes
+    const newNodes: Node[] = items.map((item: any, idx: number) => {
+      const itemNumber = item.itemNumber ?? idx + 1;
+      const id = `${parentNodeId}-child-${itemNumber}`;
       
-      const newNodes: Node[] = items.map((item: any, idx: number) => {
-        const itemNumber = item.itemNumber ?? idx + 1;
-        const id = `${parentNodeId}-child-${itemNumber}`;
-        
-        if (existingIds.has(id)) return null;
-        
-        return {
-          id,
-          type: 'description',
-          position: { x: 0, y: 0 },
-          data: {
-            description: item.description ?? 'No description',
-            itemNumber,
-            onElaborate: handleElaborate,
-            isLoading: loadingNodes.has(id),
-            title: item.title ?? ''
-          },
-          draggable: true,
-          selectable: true,
-        } as Node;
-      }).filter(Boolean) as Node[];
-
-      const updatedNodes = [...prevNodes, ...newNodes];
-      
-      const newEdges: Edge[] = items.map((item: any, idx: number) => {
-        const itemNumber = item.itemNumber ?? idx + 1;
-        const targetId = `${parentNodeId}-child-${itemNumber}`;
-        const id = `${parentNodeId}->${targetId}`;
-        
-        return {
-          id,
-          source: parentNodeId,
-          sourceHandle: 'bottom',
-          target: targetId,
-          targetHandle: 'top',
-          type: 'straight',
-          animated: false,
-          style: { 
-            stroke: 'hsl(280, 60%, 45%)', 
-            strokeWidth: 2,
-            opacity: 0.7,
-            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'hsl(280, 60%, 45%)',
-            width: 6,
-            height: 6,
-          },
-        } as Edge;
-      }).filter(Boolean) as Edge[];
-
-      setEdges(prevEdges => {
-        const allEdges = [...prevEdges, ...newEdges];
-        
-        const layoutNodes = calculateTreeLayout(updatedNodes, allEdges, horizontalSpacing, verticalSpacing);
-        setNodes(layoutNodes);
-        
-        return allEdges;
-      });
-
-      return updatedNodes;
+      return {
+        id,
+        type: 'description',
+        position: { x: 0, y: 0 }, // Will be positioned by layout
+        data: {
+          description: item.description ?? 'No description',
+          itemNumber,
+          onElaborate: handleElaborate,
+          isLoading: false,
+          title: item.title ?? ''
+        },
+        draggable: true,
+        selectable: true,
+      } as Node;
     });
-  }, [handleElaborate]);
+
+    // Create new edges connecting parent to children
+    const newEdges: Edge[] = items.map((item: any, idx: number) => {
+      const itemNumber = item.itemNumber ?? idx + 1;
+      const targetId = `${parentNodeId}-child-${itemNumber}`;
+      const edgeId = `${parentNodeId}->${targetId}`;
+      
+      return {
+        id: edgeId,
+        source: parentNodeId,
+        sourceHandle: 'bottom',
+        target: targetId,
+        targetHandle: 'top',
+        type: 'straight',
+        animated: false,
+        style: { 
+          stroke: 'hsl(var(--primary))', 
+          strokeWidth: 2,
+          opacity: 0.7,
+          filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.3))'
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(var(--primary))',
+          width: 6,
+          height: 6,
+        },
+      } as Edge;
+    });
+
+    // Update nodes and edges
+    setNodes(prevNodes => {
+      const existingIds = new Set(prevNodes.map(n => n.id));
+      const filteredNewNodes = newNodes.filter(node => !existingIds.has(node.id));
+      return [...prevNodes, ...filteredNewNodes];
+    });
+
+    setEdges(prevEdges => {
+      const existingEdgeIds = new Set(prevEdges.map(e => e.id));
+      const filteredNewEdges = newEdges.filter(edge => !existingEdgeIds.has(edge.id));
+      const allEdges = [...prevEdges, ...filteredNewEdges];
+      
+      // Recalculate layout after adding new nodes
+      setTimeout(() => {
+        setNodes(currentNodes => {
+          const layoutNodes = calculateTreeLayout(currentNodes, allEdges, horizontalSpacing, verticalSpacing);
+          return layoutNodes;
+        });
+      }, 100);
+      
+      return allEdges;
+    });
+
+    console.log('Added', newNodes.length, 'child nodes to parent:', parentNodeId);
+  }, [handleElaborate, horizontalSpacing, verticalSpacing]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(prevNodes => {
