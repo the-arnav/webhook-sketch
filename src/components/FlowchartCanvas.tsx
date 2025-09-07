@@ -87,15 +87,22 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpaci
         y: config.levelSpacing * 2
       };
 
-      // Position elaborated child nodes below description nodes
+      // Position elaborated child nodes vertically below description nodes
       const elaboratedChildren = children[descId] || [];
       elaboratedChildren.forEach((childId, childIndex) => {
-        const childTotalWidth = (elaboratedChildren.length - 1) * 280;
-        const childStartX = x - childTotalWidth / 2;
         positionedNodes[childId] = {
-          x: childStartX + (childIndex * 280),
-          y: config.levelSpacing * 3
+          x: x, // Same x position as parent (vertically aligned)
+          y: config.levelSpacing * 3 + (childIndex * (config.levelSpacing * 0.8)) // Vertically stacked
         };
+        
+        // Handle deeper nested children
+        const deeperChildren = children[childId] || [];
+        deeperChildren.forEach((deepChildId, deepIndex) => {
+          positionedNodes[deepChildId] = {
+            x: x,
+            y: config.levelSpacing * 4 + (childIndex * (config.levelSpacing * 0.8)) + (deepIndex * (config.levelSpacing * 0.6))
+          };
+        });
       });
     });
   });
@@ -238,23 +245,17 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     setNodes(prevNodes => {
       const existingIds = new Set(prevNodes.map(n => n.id));
       const filteredNewNodes = newNodes.filter(node => !existingIds.has(node.id));
-      return [...prevNodes, ...filteredNewNodes];
+      const updatedNodes = [...prevNodes, ...filteredNewNodes];
+      
+      // Immediately recalculate layout with new nodes
+      const layoutNodes = calculateTreeLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
+      return layoutNodes;
     });
 
     setEdges(prevEdges => {
       const existingEdgeIds = new Set(prevEdges.map(e => e.id));
       const filteredNewEdges = newEdges.filter(edge => !existingEdgeIds.has(edge.id));
-      const allEdges = [...prevEdges, ...filteredNewEdges];
-      
-      // Recalculate layout after adding new nodes
-      setTimeout(() => {
-        setNodes(currentNodes => {
-          const layoutNodes = calculateTreeLayout(currentNodes, allEdges, horizontalSpacing, verticalSpacing);
-          return layoutNodes;
-        });
-      }, 100);
-      
-      return allEdges;
+      return [...prevEdges, ...filteredNewEdges];
     });
 
     console.log('Added', newNodes.length, 'child nodes to parent:', parentNodeId);
@@ -421,13 +422,30 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     console.log('Generated nodes with layout:', layoutNodes);
     console.log('Generated edges:', edges);
     return { nodes: layoutNodes, edges };
-  }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
+  }, [data, subject]);
 
   useEffect(() => {
     console.log('Data changed, updating nodes and edges');
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    // Only reset nodes when the data actually changes, preserve child nodes
+    setNodes(prevNodes => {
+      // Check if we have existing child nodes
+      const childNodes = prevNodes.filter(node => node.id.includes('-child-'));
+      const newNodes = initialNodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onElaborate: handleElaborate,
+          isLoading: loadingNodes.has(node.id)
+        }
+      }));
+      return [...newNodes, ...childNodes];
+    });
+    setEdges(prevEdges => {
+      // Preserve child edges
+      const childEdges = prevEdges.filter(edge => edge.id.includes('-child-'));
+      return [...initialEdges, ...childEdges];
+    });
+  }, [initialNodes, initialEdges, setNodes, setEdges, handleElaborate, loadingNodes]);
 
   useEffect(() => {
     if (nodes.length > 0 && onSnapshot) {
