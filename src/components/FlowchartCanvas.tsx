@@ -120,7 +120,17 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       return;
     }
 
+    // Set loading state for the specific node
     setLoadingNodes(prev => new Set([...prev, nodeId]));
+    
+    // Update the node to show loading state
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, data: { ...node.data, isLoading: true } }
+          : node
+      )
+    );
 
     try {
       const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
@@ -144,11 +154,21 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       console.error('Error elaborating node:', error);
       alert('Failed to elaborate. Please try again.');
     } finally {
+      // Remove loading state
       setLoadingNodes(prev => {
         const newSet = new Set(prev);
         newSet.delete(nodeId);
         return newSet;
       });
+      
+      // Update node to remove loading state
+      setNodes(prevNodes => 
+        prevNodes.map(node => 
+          node.id === nodeId 
+            ? { ...node, data: { ...node.data, isLoading: false } }
+            : node
+        )
+      );
     }
   }, [loadingNodes]);
 
@@ -179,7 +199,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
             description: item.description ?? 'No description',
             itemNumber,
             onElaborate: handleElaborate,
-            isLoading: false,
+            isLoading: loadingNodes.has(id),
             title: item.title ?? ''
           },
           draggable: true,
@@ -336,7 +356,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           description: item.description,
           itemNumber: item.itemNumber,
           onElaborate: handleElaborate,
-          isLoading: false
+          isLoading: loadingNodes.has(descNodeId)
         },
         draggable: true,
         selectable: true,
