@@ -1,25 +1,29 @@
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ReactFlow,
-  Node,
-  Edge,
-  addEdge,
-  Connection,
-  useNodesState,
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { 
+  ReactFlow, 
+  Node, 
+  Edge, 
+  Controls, 
+  MiniMap, 
+  Background, 
+  useNodesState, 
   useEdgesState,
-  Controls,
-  MiniMap,
-  Background,
+  Connection,
+  addEdge,
+  BackgroundVariant,
   MarkerType,
+  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
+import { ContextMenu } from './ContextMenu';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Sparkles } from 'lucide-react';
+import { RefreshCw, Layers, RotateCcw, Zap, Grid3X3 } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
+import { calculateProfessionalTreeLayout, positionElaboratedChildren } from '@/utils/nodeLayout';
+import { toast } from 'sonner';
 
 const nodeTypes = {
   subject: SubjectNode,
@@ -39,18 +43,23 @@ interface FlowchartCanvasProps {
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
-// Simple hierarchical layout for proper flowchart structure
-const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpacing?: number, customVerticalSpacing?: number) => {
+const calculateTreeLayout = (
+  nodes: Node[], 
+  edges: Edge[], 
+  customHorizontalSpacing?: number, 
+  customVerticalSpacing?: number
+): Node[] => {
   const children: Record<string, string[]> = {};
-  const parents: Record<string, string> = {};
-  
+  const positionedNodes: Record<string, { x: number; y: number }> = {};
+
+  // Build parent-child relationships
   edges.forEach(edge => {
-    if (!children[edge.source]) children[edge.source] = [];
+    if (!children[edge.source]) {
+      children[edge.source] = [];
+    }
     children[edge.source].push(edge.target);
-    parents[edge.target] = edge.source;
   });
 
-  const positionedNodes: Record<string, { x: number; y: number }> = {};
   const config = {
     nodeWidth: 300,
     nodeHeight: 150,
@@ -60,7 +69,7 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpaci
   };
 
   // Find root node (subject)
-  const rootNode = nodes.find(node => node.type === 'subject');
+  const rootNode = nodes.find(n => n.type === 'subject');
   if (!rootNode) return nodes;
 
   // Position root at center
@@ -114,10 +123,16 @@ const calculateTreeLayout = (nodes: Node[], edges: Edge[], customHorizontalSpaci
 };
 
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
-  const { horizontalSpacing, verticalSpacing } = useSettings();
+  const { horizontalSpacing, verticalSpacing, showGrid, autoLayout } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  const [isReorganizing, setIsReorganizing] = useState(false);
 
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
@@ -156,7 +171,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       handleElaborateResponse(nodeId, result);
     } catch (error) {
       console.error('Error elaborating node:', error);
-      alert('Failed to elaborate. Please try again.');
+      toast.error('Failed to elaborate. Please try again.');
     } finally {
       // Remove loading state
       setLoadingNodes(prev => {
@@ -183,10 +198,15 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
 
     if (!Array.isArray(items) || items.length === 0) {
       console.log('No items found in response:', responseJson);
+      toast.error('No content received from elaboration');
       return;
     }
 
     console.log('Processing elaborate response with', items.length, 'items');
+
+    // Find parent node for positioning
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode) return;
 
     // Create new child nodes
     const newNodes: Node[] = items.map((item: any, idx: number) => {
@@ -238,240 +258,230 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       } as Edge;
     });
 
-    // Update nodes and edges
+    // Add new nodes and edges to the graph
     setNodes(prevNodes => {
-      const existingIds = new Set(prevNodes.map(n => n.id));
-      const filteredNewNodes = newNodes.filter(node => !existingIds.has(node.id));
-      const updatedNodes = [...prevNodes, ...filteredNewNodes];
+      const updatedNodes = [...prevNodes, ...newNodes];
       
-      // Immediately recalculate layout with new nodes
-      const layoutNodes = calculateTreeLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
-      return layoutNodes;
+      // Apply auto-layout if enabled
+      if (autoLayout) {
+        return calculateTreeLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
+      }
+      
+      // Manual positioning for new nodes
+      return positionElaboratedChildren(
+        parentNode,
+        newNodes,
+        prevNodes,
+        {
+          nodeWidth: 300,
+          nodeHeight: 150,
+          levelSpacing: verticalSpacing,
+          siblingSpacing: horizontalSpacing,
+          childSpacing: 160,
+          centerAlignment: true,
+          collisionDetection: true
+        }
+      );
     });
 
-    setEdges(prevEdges => {
-      const existingEdgeIds = new Set(prevEdges.map(e => e.id));
-      const filteredNewEdges = newEdges.filter(edge => !existingEdgeIds.has(edge.id));
-      return [...prevEdges, ...filteredNewEdges];
-    });
-
-    console.log('Added', newNodes.length, 'child nodes to parent:', parentNodeId);
-  }, [handleElaborate, horizontalSpacing, verticalSpacing]);
+    setEdges(prevEdges => [...prevEdges, ...newEdges]);
+    
+    toast.success(`Added ${items.length} new nodes`);
+  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(prevNodes => {
-      const nodesToDelete = new Set<string>();
-      
+      // Find all descendant nodes to delete
+      const nodesToDelete = new Set([nodeId]);
       const findDescendants = (id: string) => {
-        nodesToDelete.add(id);
         edges.forEach(edge => {
-          if (edge.source === id) {
+          if (edge.source === id && !nodesToDelete.has(edge.target)) {
+            nodesToDelete.add(edge.target);
             findDescendants(edge.target);
           }
         });
       };
-      
       findDescendants(nodeId);
       
       return prevNodes.filter(node => !nodesToDelete.has(node.id));
     });
     
-    setEdges(prevEdges => {
-      return prevEdges.filter(edge => 
-        !edge.source.includes(nodeId) && !edge.target.includes(nodeId)
-      );
-    });
+    setEdges(prevEdges => 
+      prevEdges.filter(edge => 
+        edge.source !== nodeId && edge.target !== nodeId
+      )
+    );
+    
+    setContextMenu(null);
+    toast.success('Node deleted successfully');
   }, [edges]);
 
   const handleReorganize = useCallback(() => {
-    if (nodes.length > 0 && edges.length > 0) {
-      const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
-      setNodes(layoutNodes);
-    }
-  }, [nodes, edges, setNodes, horizontalSpacing, verticalSpacing]);
+    setIsReorganizing(true);
+    
+    setTimeout(() => {
+      const layoutedNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
+      setNodes(layoutedNodes);
+      setIsReorganizing(false);
+      toast.success('Canvas reorganized');
+    }, 100);
+  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
 
   const handleTidyUp = useCallback(() => {
-    if (nodes.length > 0 && edges.length > 0) {
-      // Enhanced tidy up with better spacing and alignment
-      const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
-      
-      // Add smooth animation by using fitView after layout
-      setNodes(layoutNodes);
-      
-      // Trigger a small delay and then fit view for better visual effect
-      setTimeout(() => {
-        const reactFlowInstance = document.querySelector('.react-flow');
-        if (reactFlowInstance) {
-          const event = new CustomEvent('fitView', { 
-            detail: { 
-              padding: 0.3, 
-              duration: 800,
-              includeHiddenNodes: false 
-            } 
-          });
-          reactFlowInstance.dispatchEvent(event);
-        }
-      }, 100);
-    }
-  }, [nodes, edges, setNodes, horizontalSpacing, verticalSpacing]);
-
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    console.log('Generating nodes from data:', data);
+    setIsReorganizing(true);
     
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
+    setTimeout(() => {
+      const layoutedNodes = calculateProfessionalTreeLayout(
+        nodes,
+        edges,
+        {
+          nodeWidth: 300,
+          nodeHeight: 150,
+          levelSpacing: verticalSpacing,
+          siblingSpacing: horizontalSpacing,
+          childSpacing: 160,
+          centerAlignment: true,
+          collisionDetection: true
+        }
+      );
+      setNodes(layoutedNodes);
+      setIsReorganizing(false);
+      toast.success('Canvas tidied up');
+    }, 100);
+  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
 
-    if (data.length === 0) {
-      console.log('No data provided, returning empty nodes/edges');
-      return { nodes, edges };
-    }
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id
+    });
+  }, []);
 
-    const subjectNodeId = 'subject-node';
-    nodes.push({
-      id: subjectNodeId,
+  const handleNodeDuplicate = useCallback((nodeId: string) => {
+    const originalNode = nodes.find(n => n.id === nodeId);
+    if (!originalNode) return;
+
+    const newNode: Node = {
+      ...originalNode,
+      id: `${nodeId}-copy-${Date.now()}`,
+      position: {
+        x: originalNode.position.x + 50,
+        y: originalNode.position.y + 50
+      },
+      data: {
+        ...originalNode.data,
+        onElaborate: handleElaborate
+      }
+    };
+
+    setNodes(prevNodes => [...prevNodes, newNode]);
+    setContextMenu(null);
+    toast.success('Node duplicated');
+  }, [nodes, handleElaborate]);
+
+  const initialNodes = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    const subjectNode: Node = {
+      id: 'subject',
       type: 'subject',
       position: { x: 0, y: 0 },
+      data: { subject: subject || 'Main Topic' },
+      draggable: true,
+      selectable: true,
+    };
+
+    const titleNodes: Node[] = data.map((item, index) => ({
+      id: `title-${item.itemNumber}`,
+      type: 'title',
+      position: { x: 0, y: 0 }, // Will be positioned by layout
       data: { 
-        subject: subject || 'Main Topic'
+        title: item.title, 
+        itemNumber: item.itemNumber,
+        onElaborate: handleElaborate,
+        isLoading: false 
       },
       draggable: true,
       selectable: true,
-    });
+    }));
 
-    data.forEach((item, index) => {
-      const titleNodeId = `title-${item.itemNumber}`;
-      const descNodeId = `desc-${item.itemNumber}`;
-      
-      nodes.push({
-        id: titleNodeId,
-        type: 'title',
-        position: { x: 0, y: 0 },
-        data: { 
-          title: item.title,
-          itemNumber: item.itemNumber,
-          onElaborate: handleElaborate,
-          isLoading: false
-        },
-        draggable: true,
-        selectable: true,
-      });
+    const descriptionNodes: Node[] = data.map((item, index) => ({
+      id: `desc-${item.itemNumber}`,
+      type: 'description',
+      position: { x: 0, y: 0 }, // Will be positioned by layout
+      data: { 
+        description: item.description, 
+        itemNumber: item.itemNumber,
+        onElaborate: handleElaborate,
+        isLoading: false 
+      },
+      draggable: true,
+      selectable: true,
+    }));
 
-      nodes.push({
-        id: descNodeId,
-        type: 'description',
-        position: { x: 0, y: 0 },
-        data: { 
-          description: item.description,
-          itemNumber: item.itemNumber,
-          onElaborate: handleElaborate,
-          isLoading: loadingNodes.has(descNodeId)
-        },
-        draggable: true,
-        selectable: true,
-      });
+    const allNodes = [subjectNode, ...titleNodes, ...descriptionNodes];
+    return calculateTreeLayout(allNodes, [], horizontalSpacing, verticalSpacing);
+  }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
 
-      edges.push({
-        id: `subject-title-${item.itemNumber}`,
-        source: subjectNodeId,
-        sourceHandle: 'bottom',
-        target: titleNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: true,
-        style: { 
-          stroke: 'hsl(270, 80%, 60%)', 
-          strokeWidth: 3,
-          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(270, 80%, 60%)',
-          width: 8,
-          height: 8,
-        },
-      });
+  const initialEdges = useMemo(() => {
+    if (!data || data.length === 0) return [];
 
-      edges.push({
-        id: `title-desc-${item.itemNumber}`,
-        source: titleNodeId,
-        sourceHandle: 'bottom',
-        target: descNodeId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(260, 70%, 50%)', 
-          strokeWidth: 2,
-          opacity: 0.8,
-          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(260, 70%, 50%)',
-          width: 6,
-          height: 6,
-        },
-      });
-    });
+    const subjectToTitleEdges: Edge[] = data.map((item) => ({
+      id: `subject->title-${item.itemNumber}`,
+      source: 'subject',
+      sourceHandle: 'bottom',
+      target: `title-${item.itemNumber}`,
+      targetHandle: 'top',
+      type: 'straight',
+      animated: true,
+      style: { 
+        stroke: 'var(--edge-primary)', 
+        strokeWidth: 3,
+        filter: 'var(--edge-glow)'
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: 'var(--edge-primary)',
+        width: 8,
+        height: 8,
+      },
+    }));
 
-    const layoutNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
-    
-    console.log('Generated nodes with layout:', layoutNodes);
-    console.log('Generated edges:', edges);
-    return { nodes: layoutNodes, edges };
-  }, [data, subject]);
+    const titleToDescEdges: Edge[] = data.map((item) => ({
+      id: `title-${item.itemNumber}->desc-${item.itemNumber}`,
+      source: `title-${item.itemNumber}`,
+      sourceHandle: 'bottom',
+      target: `desc-${item.itemNumber}`,
+      targetHandle: 'top',
+      type: 'straight',
+      animated: true,
+      style: { 
+        stroke: 'var(--edge-secondary)', 
+        strokeWidth: 2,
+        opacity: 0.8,
+        filter: 'var(--edge-glow)'
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: 'var(--edge-secondary)',
+        width: 6,
+        height: 6,
+      },
+    }));
+
+    return [...subjectToTitleEdges, ...titleToDescEdges];
+  }, [data]);
 
   useEffect(() => {
-    console.log('Data changed, updating nodes and edges');
-    // Only reset nodes when the data actually changes, preserve child nodes
-    setNodes(prevNodes => {
-      // Check if we have existing child nodes
-      const childNodes = prevNodes.filter(node => node.id.includes('-child-'));
-      const newNodes = initialNodes.map(node => ({
-        ...node,
-        data: {
-          ...node.data,
-          onElaborate: handleElaborate,
-          isLoading: loadingNodes.has(node.id)
-        }
-      }));
-      return [...newNodes, ...childNodes];
-    });
-    setEdges(prevEdges => {
-      // Preserve child edges
-      const childEdges = prevEdges.filter(edge => edge.id.includes('-child-'));
-      return [...initialEdges, ...childEdges];
-    });
-  }, [initialNodes, initialEdges, setNodes, setEdges, handleElaborate, loadingNodes]);
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges]);
 
   useEffect(() => {
-    if (nodes.length > 0 && onSnapshot) {
-      console.log('Emitting snapshot with nodes:', nodes.length, 'edges:', edges.length);
-      const completeSnapshot = {
-        nodes: nodes.map(node => ({
-          ...node,
-          position: node.position,
-          data: {
-            ...node.data,
-            ...(node.data.subject && { subject: node.data.subject }),
-            ...(node.data.title && { title: node.data.title }),
-            ...(node.data.description && { description: node.data.description }),
-            ...(node.data.itemNumber && { itemNumber: node.data.itemNumber }),
-          }
-        })),
-        edges: edges.map(edge => ({
-          ...edge,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle,
-          style: edge.style,
-          animated: edge.animated,
-          type: edge.type,
-          markerEnd: edge.markerEnd
-        }))
-      };
-      onSnapshot(completeSnapshot);
+    if (onSnapshot) {
+      onSnapshot({ nodes, edges });
     }
   }, [nodes, edges, onSnapshot]);
 
@@ -480,84 +490,101 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     [setEdges]
   );
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
-    event.preventDefault();
-    
-    if (node.type === 'subject') return;
-    
-    const confirmDelete = window.confirm(`Delete "${node.data.title || node.data.description}" and all its children?`);
-    if (confirmDelete) {
-      handleDeleteNode(node.id);
-    }
-  }, [handleDeleteNode]);
-
-  console.log('Rendering FlowchartCanvas with nodes:', nodes.length, 'edges:', edges.length);
-
   return (
-    <div className="w-full h-full relative">
+    <div className="relative w-full h-full bg-canvas-bg">
+      {/* Canvas Controls */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReorganize}
+          disabled={isReorganizing}
+          className="glass-panel border-border hover:bg-accent/50"
+        >
+          <RefreshCw className={`w-4 h-4 ${isReorganizing ? 'animate-spin' : ''}`} />
+          {isReorganizing ? 'Organizing...' : 'Reorganize'}
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleTidyUp}
+          disabled={isReorganizing}
+          className="glass-panel border-border hover:bg-accent/50"
+        >
+          <Zap className={`w-4 h-4 ${isReorganizing ? 'animate-pulse' : ''}`} />
+          Tidy Up
+        </Button>
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeContextMenu={onNodeContextMenu}
+        onNodeContextMenu={handleNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ 
-          padding: 0.3, 
-          minZoom: 0.2, 
+        fitViewOptions={{
+          padding: 0.2,
+          includeHiddenNodes: false,
           maxZoom: 1.2,
-          includeHiddenNodes: false 
+          minZoom: 0.1,
         }}
-        minZoom={0.2}
-        maxZoom={1.2}
-        defaultEdgeOptions={{
-          type: 'straight',
-          animated: false,
-        }}
-        deleteKeyCode={['Backspace', 'Delete']}
-        multiSelectionKeyCode={'Shift'}
+        className="bg-canvas-bg"
       >
-        <Controls className="glass-panel" />
+        <Controls />
         <MiniMap 
-          className="glass-panel"
           nodeColor={(node) => {
-            if (node.type === 'subject') return '#a855f7';
-            if (node.type === 'title') return '#8b5cf6';
-            return '#6366f1';
+            switch (node.type) {
+              case 'subject': return 'hsl(var(--primary))';
+              case 'title': return 'hsl(var(--accent))';
+              case 'description': return 'hsl(var(--muted))';
+              default: return 'hsl(var(--foreground))';
+            }
           }}
-          maskColor="rgba(0, 0, 0, 0.8)"
+          maskColor="hsl(var(--background) / 0.8)"
         />
         <Background 
-          color="#64748b" 
-          gap={20} 
-          size={2}
-          className="opacity-40"
+          variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Cross}
+          gap={20}
+          size={1}
+          color="hsl(var(--border))"
+          style={{ opacity: showGrid ? 0.3 : 0.1 }}
         />
       </ReactFlow>
-      
-      {/* Control Buttons - Positioned to avoid chatbox overlap */}
-      <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
-        <Button
-          onClick={handleReorganize}
-          variant="outline"
-          size="sm"
-          className="glass-panel flex items-center gap-2 bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Reorganize
-        </Button>
-        <Button
-          onClick={handleTidyUp}
-          variant="outline"
-          size="sm"
-          className="glass-panel flex items-center gap-2 bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80"
-        >
-          <Sparkles className="w-4 h-4" />
-          Tidy Up
-        </Button>
-      </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onDelete={() => handleDeleteNode(contextMenu.nodeId)}
+          onEdit={() => {
+            // TODO: Implement edit functionality
+            setContextMenu(null);
+            toast.info('Edit functionality coming soon');
+          }}
+          onDuplicate={() => handleNodeDuplicate(contextMenu.nodeId)}
+          onMove={() => {
+            // TODO: Implement move functionality
+            setContextMenu(null);
+            toast.info('Move functionality coming soon');
+          }}
+          onToggleLock={() => {
+            // TODO: Implement lock functionality
+            setContextMenu(null);
+            toast.info('Lock functionality coming soon');
+          }}
+          onChangeColor={() => {
+            // TODO: Implement color change functionality
+            setContextMenu(null);
+            toast.info('Color change functionality coming soon');
+          }}
+        />
+      )}
     </div>
   );
 };

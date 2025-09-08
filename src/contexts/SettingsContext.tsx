@@ -4,9 +4,19 @@ interface SettingsContextType {
   themeColor: string;
   horizontalSpacing: number;
   verticalSpacing: number;
+  nodeOpacity: number;
+  animationSpeed: number;
+  showGrid: boolean;
+  autoLayout: boolean;
+  canvasBackground: string;
   setThemeColor: (color: string) => void;
   setHorizontalSpacing: (spacing: number) => void;
   setVerticalSpacing: (spacing: number) => void;
+  setNodeOpacity: (opacity: number) => void;
+  setAnimationSpeed: (speed: number) => void;
+  setShowGrid: (show: boolean) => void;
+  setAutoLayout: (auto: boolean) => void;
+  setCanvasBackground: (bg: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -29,6 +39,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [verticalSpacing, setVerticalSpacing] = useState(() => 
     parseInt(localStorage.getItem('verticalSpacing') || '200')
   );
+  const [nodeOpacity, setNodeOpacity] = useState(() => 
+    parseInt(localStorage.getItem('nodeOpacity') || '90')
+  );
+  const [animationSpeed, setAnimationSpeed] = useState(() => 
+    parseInt(localStorage.getItem('animationSpeed') || '300')
+  );
+  const [showGrid, setShowGrid] = useState(() => 
+    localStorage.getItem('showGrid') === 'true'
+  );
+  const [autoLayout, setAutoLayout] = useState(() => 
+    localStorage.getItem('autoLayout') !== 'false'
+  );
+  const [canvasBackground, setCanvasBackground] = useState(() => 
+    localStorage.getItem('canvasBackground') || 'gradient'
+  );
 
   useEffect(() => {
     localStorage.setItem('themeColor', themeColor);
@@ -42,6 +67,29 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     localStorage.setItem('verticalSpacing', verticalSpacing.toString());
   }, [verticalSpacing]);
+
+  useEffect(() => {
+    localStorage.setItem('nodeOpacity', nodeOpacity.toString());
+    updateNodeOpacity(nodeOpacity);
+  }, [nodeOpacity]);
+
+  useEffect(() => {
+    localStorage.setItem('animationSpeed', animationSpeed.toString());
+    updateAnimationSpeed(animationSpeed);
+  }, [animationSpeed]);
+
+  useEffect(() => {
+    localStorage.setItem('showGrid', showGrid.toString());
+  }, [showGrid]);
+
+  useEffect(() => {
+    localStorage.setItem('autoLayout', autoLayout.toString());
+  }, [autoLayout]);
+
+  useEffect(() => {
+    localStorage.setItem('canvasBackground', canvasBackground);
+    updateCanvasBackground(canvasBackground);
+  }, [canvasBackground]);
 
   const updateCSSVariables = (hue: string) => {
     const root = document.documentElement;
@@ -75,14 +123,51 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     root.style.setProperty('--premium-border', `linear-gradient(135deg, hsl(${hue} 80% 50% / 0.5), hsl(${lighterHue} 70% 60% / 0.3))`);
   };
 
+  const updateNodeOpacity = (opacity: number) => {
+    const root = document.documentElement;
+    const opacityValue = opacity / 100;
+    root.style.setProperty('--node-opacity', opacityValue.toString());
+  };
+
+  const updateAnimationSpeed = (speed: number) => {
+    const root = document.documentElement;
+    root.style.setProperty('--animation-duration', `${speed}ms`);
+  };
+
+  const updateCanvasBackground = (bg: string) => {
+    const root = document.documentElement;
+    switch (bg) {
+      case 'solid':
+        root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
+        break;
+      case 'gradient':
+        root.style.setProperty('--canvas-bg', 'radial-gradient(circle at 20% 20%, hsl(270 80% 25% / 0.15), transparent 35%), radial-gradient(circle at 80% 30%, hsl(260 70% 30% / 0.15), transparent 40%), linear-gradient(120deg, hsl(220 15% 8%), hsl(220 20% 10%))');
+        break;
+      case 'dots':
+        root.style.setProperty('--canvas-bg', 'radial-gradient(circle at 1px 1px, hsl(270 50% 30% / 0.3) 1px, transparent 0)');
+        root.style.setProperty('--canvas-bg-size', '20px 20px');
+        break;
+    }
+  };
+
   return (
     <SettingsContext.Provider value={{
       themeColor,
       horizontalSpacing,
       verticalSpacing,
+      nodeOpacity,
+      animationSpeed,
+      showGrid,
+      autoLayout,
+      canvasBackground,
       setThemeColor,
       setHorizontalSpacing,
-      setVerticalSpacing
+      setVerticalSpacing,
+      setNodeOpacity,
+      setAnimationSpeed,
+      setShowGrid,
+      setAutoLayout,
+      setCanvasBackground
     }}>
       {children}
     </SettingsContext.Provider>
