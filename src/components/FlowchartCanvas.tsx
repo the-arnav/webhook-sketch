@@ -43,16 +43,23 @@ interface FlowchartCanvasProps {
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
-const calculateTreeLayout = (
+const createMindMapLayout = (
   nodes: Node[], 
   edges: Edge[], 
   customHorizontalSpacing?: number, 
   customVerticalSpacing?: number
 ): Node[] => {
-  const children: Record<string, string[]> = {};
+  if (nodes.length === 0) return nodes;
+
   const positionedNodes: Record<string, { x: number; y: number }> = {};
+  const config = {
+    levelSpacing: customVerticalSpacing || 250,
+    siblingSpacing: customHorizontalSpacing || 400,
+    childSpacing: 350 // Spacing between elaborated child nodes
+  };
 
   // Build parent-child relationships
+  const children: Record<string, string[]> = {};
   edges.forEach(edge => {
     if (!children[edge.source]) {
       children[edge.source] = [];
@@ -60,65 +67,77 @@ const calculateTreeLayout = (
     children[edge.source].push(edge.target);
   });
 
-  const config = {
-    nodeWidth: 300,
-    nodeHeight: 150,
-    levelSpacing: customVerticalSpacing || 200,
-    siblingSpacing: customHorizontalSpacing || 350,
-    childSpacing: 160 // Spacing between child nodes vertically
-  };
+  // Find and categorize nodes
+  const subjectNode = nodes.find(n => n.type === 'subject');
+  const titleNodes = nodes.filter(n => n.type === 'title');
+  const descriptionNodes = nodes.filter(n => n.type === 'description');
+  
+  if (!subjectNode) return nodes;
 
-  // Find root node (subject)
-  const rootNode = nodes.find(n => n.type === 'subject');
-  if (!rootNode) return nodes;
+  // Position subject node at center top
+  positionedNodes[subjectNode.id] = { x: 0, y: 0 };
 
-  // Position root at center
-  positionedNodes[rootNode.id] = { x: 0, y: 0 };
-
-  // Recursive function to position nodes
-  const positionNodeAndChildren = (nodeId: string, parentX: number, parentY: number, level: number) => {
-    const nodeChildren = children[nodeId] || [];
+  // Position title nodes horizontally below subject
+  if (titleNodes.length > 0) {
+    const totalTitleWidth = (titleNodes.length - 1) * config.siblingSpacing;
+    const startX = -totalTitleWidth / 2;
     
-    nodeChildren.forEach((childId, index) => {
+    titleNodes.forEach((titleNode, index) => {
+      const x = startX + (index * config.siblingSpacing);
+      const y = config.levelSpacing;
+      positionedNodes[titleNode.id] = { x, y };
+    });
+  }
+
+  // Position description nodes directly below their title nodes
+  titleNodes.forEach(titleNode => {
+    const titleChildren = children[titleNode.id] || [];
+    const descChild = titleChildren.find(childId => 
+      nodes.find(n => n.id === childId)?.type === 'description'
+    );
+    
+    if (descChild && positionedNodes[titleNode.id]) {
+      const titlePos = positionedNodes[titleNode.id];
+      positionedNodes[descChild] = {
+        x: titlePos.x,
+        y: titlePos.y + config.levelSpacing
+      };
+    }
+  });
+
+  // Position elaborated children horizontally below their parents
+  const positionElaboratedChildren = (parentId: string, level: number = 3) => {
+    const parentPos = positionedNodes[parentId];
+    if (!parentPos) return;
+
+    const childIds = children[parentId] || [];
+    const elaboratedChildren = childIds.filter(childId => {
       const childNode = nodes.find(n => n.id === childId);
-      if (!childNode) return;
+      return childNode && !['title', 'description'].includes(childNode.type || '');
+    });
 
-      let x = parentX;
-      let y = parentY;
+    if (elaboratedChildren.length === 0) return;
 
-      // Different positioning logic based on node type and level
-      if (level === 1) {
-        // Title nodes - spread horizontally with equal spacing
-        const totalWidth = Math.max((nodeChildren.length - 1) * config.siblingSpacing, 0);
-        const startX = parentX - totalWidth / 2;
-        x = startX + (index * config.siblingSpacing);
-        y = parentY + config.levelSpacing;
-      } else if (level === 2) {
-        // Description nodes - directly below their parent title nodes
-        x = parentX;
-        y = parentY + config.levelSpacing;
-      } else {
-        // Elaborated child nodes - spread horizontally below parent
-        if (nodeChildren.length > 1) {
-          const childTotalWidth = (nodeChildren.length - 1) * (config.childSpacing + 50);
-          const childStartX = parentX - childTotalWidth / 2;
-          x = childStartX + (index * (config.childSpacing + 50));
-        } else {
-          x = parentX;
-        }
-        y = parentY + config.levelSpacing;
-      }
+    // Position elaborated children horizontally
+    const totalChildWidth = (elaboratedChildren.length - 1) * config.childSpacing;
+    const startX = parentPos.x - totalChildWidth / 2;
+    const childY = parentPos.y + config.levelSpacing;
 
-      positionedNodes[childId] = { x, y };
+    elaboratedChildren.forEach((childId, index) => {
+      const x = startX + (index * config.childSpacing);
+      positionedNodes[childId] = { x, y: childY };
       
-      // Recursively position children of this node
-      positionNodeAndChildren(childId, x, y, level + 1);
+      // Recursively position their children
+      positionElaboratedChildren(childId, level + 1);
     });
   };
 
-  // Start positioning from root
-  positionNodeAndChildren(rootNode.id, 0, 0, 0);
+  // Position elaborated children for all description nodes
+  descriptionNodes.forEach(descNode => {
+    positionElaboratedChildren(descNode.id);
+  });
 
+  // Apply positions to nodes
   return nodes.map(node => ({
     ...node,
     position: {
@@ -270,7 +289,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       
       // Apply auto-layout if enabled
       if (autoLayout) {
-        return calculateTreeLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
+        return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
       }
       
       // Manual positioning for new nodes
@@ -326,7 +345,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     setIsReorganizing(true);
     
     setTimeout(() => {
-      const layoutedNodes = calculateTreeLayout(nodes, edges, horizontalSpacing, verticalSpacing);
+      const layoutedNodes = createMindMapLayout(nodes, edges, horizontalSpacing, verticalSpacing);
       setNodes(layoutedNodes);
       setIsReorganizing(false);
       toast.success('Canvas reorganized');
@@ -428,7 +447,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     }));
 
     const allNodes = [subjectNode, ...titleNodes, ...descriptionNodes];
-    return calculateTreeLayout(allNodes, [], horizontalSpacing, verticalSpacing);
+    return createMindMapLayout(allNodes, [], horizontalSpacing, verticalSpacing);
   }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
 
   const initialEdges = useMemo(() => {
@@ -567,11 +586,11 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           }}
         />
         <Background 
-          variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines}
-          gap={24}
-          size={1.5}
+          variant={BackgroundVariant.Dots}
+          gap={32}
+          size={2}
           color="hsl(var(--border))"
-          style={{ opacity: showGrid ? 0.6 : 0.3 }}
+          style={{ opacity: showGrid ? 0.8 : 0.4 }}
         />
       </ReactFlow>
 
