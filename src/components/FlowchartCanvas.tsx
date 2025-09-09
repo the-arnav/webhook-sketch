@@ -16,6 +16,8 @@ import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
+import { ContextMenu } from './ContextMenu';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const nodeTypes = {
   subject: SubjectNode,
@@ -37,6 +39,12 @@ interface FlowchartCanvasProps {
 
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  const { horizontalSpacing, verticalSpacing } = useSettings();
 
   const { nodes: baseNodes, edges: baseEdges } = useMemo(() => {
     const nodes: Node[] = [];
@@ -56,9 +64,9 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     });
 
     // Calculate layout for hierarchical structure with proper spacing
-    const titleRowY = 350; // Increased distance below subject
-    const descRowY = 650;  // Increased distance below titles
-    const nodeSpacing = 400; // Increased horizontal spacing between nodes
+    const titleRowY = verticalSpacing; // Use settings for vertical spacing
+    const descRowY = verticalSpacing * 2;  // Double spacing for descriptions
+    const nodeSpacing = horizontalSpacing; // Use settings for horizontal spacing
     
     // Center the nodes horizontally
     const startX = -(data.length - 1) * nodeSpacing / 2;
@@ -159,9 +167,9 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   type ChildrenMap = Map<string, string[]>;
 
   const layoutGraph = useCallback((inputNodes: Node[], inputEdges: Edge[]): Node[] => {
-    const horizontalSpacing = 320;
-    const verticalSpacing = 300;
-    const minGapX = 220;
+    const layoutHorizontalSpacing = horizontalSpacing * 0.8;
+    const layoutVerticalSpacing = verticalSpacing;
+    const minGapX = horizontalSpacing * 0.5;
 
     const idToNode: NodeMap = new Map(inputNodes.map(n => [n.id, { ...n }]));
     const children: ChildrenMap = new Map();
@@ -204,12 +212,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       if (!parent) return;
       const kids = (children.get(parentId) || []).filter(id => idToNode.has(id));
       if (kids.length === 0) return;
-      const startX = parent.position.x - (horizontalSpacing * (kids.length - 1)) / 2;
+      const startX = parent.position.x - (layoutHorizontalSpacing * (kids.length - 1)) / 2;
       kids.forEach((kidId, index) => {
         const kid = idToNode.get(kidId)!;
         kid.position = {
-          x: startX + index * horizontalSpacing,
-          y: parent.position.y + verticalSpacing,
+          x: startX + index * layoutHorizontalSpacing,
+          y: parent.position.y + layoutVerticalSpacing,
         } as any;
       });
       // recurse
@@ -244,7 +252,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     }
 
     return Array.from(idToNode.values());
-  }, []);
+  }, [horizontalSpacing, verticalSpacing]);
 
   // Attach handlers and loading state to current nodes whenever either changes
   const attachHandlers = useCallback(() => {
@@ -289,12 +297,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       // Determine how many children already exist for this parent to stagger rows
       const existingChildrenCount = prevNodes.filter(n => n.id.startsWith(`${parentNodeId}-`)).length;
 
-      // Layout parameters (deterministic lanes per parent)
-      const horizontalSpacing = 320; // even spacing between siblings
-      const verticalSpacing = 500;   // distance from parent to children row
+      // Layout parameters (deterministic lanes per parent)  
+      const layoutHorizontalSpacing = horizontalSpacing * 0.8; // even spacing between siblings
+      const layoutVerticalSpacing = verticalSpacing * 1.7;   // distance from parent to children row
       const nodeWidth = 260;         // approximate node width for interval collision
       const rowSnap = 80;            // y tolerance to treat nodes as same row
-      const baseY = parent.position.y + verticalSpacing;
+      const baseY = parent.position.y + layoutVerticalSpacing;
 
       // Build occupied intervals on this children row to avoid cross-parent overlap
       // children row we are targeting
@@ -320,7 +328,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
             return x;
           }
           // Try shifting alternately right and left
-          const step = Math.ceil(guard / 2) * horizontalSpacing;
+          const step = Math.ceil(guard / 2) * layoutHorizontalSpacing;
           x = guard % 2 === 0 ? centerX - step : centerX + step;
         }
         return centerX; // fallback
@@ -329,12 +337,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       const placedNodes: Node[] = [];
       const totalChildren = existingChildrenCount + items.length;
       const firstIndex = existingChildrenCount; // new indices start after existing
-      const startX = parent.position.x - (horizontalSpacing * (totalChildren - 1)) / 2;
+      const startX = parent.position.x - (layoutHorizontalSpacing * (totalChildren - 1)) / 2;
 
       const newNodes: Node[] = items.map((item: any, idx: number) => {
         const itemNumber = item.itemNumber ?? idx + 1;
         const id = `${parentNodeId}-${itemNumber}`;
-        const desiredX = startX + (firstIndex + idx) * horizontalSpacing;
+        const desiredX = startX + (firstIndex + idx) * layoutHorizontalSpacing;
         const desiredY = baseY;
 
         // Reserve a non-overlapping slot on this row
@@ -498,7 +506,42 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     }
   }, [loadingNodes, handleElaborateResponse]);
 
-  // Removed duplicate nodes/edges calculation and state hooks that caused redeclaration
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id,
+    });
+  }, []);
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes(prevNodes => {
+      // Find all descendant nodes to delete
+      const nodesToDelete = new Set([nodeId]);
+      const queue = [nodeId];
+      
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        prevNodes.forEach(node => {
+          if (node.id.startsWith(`${currentId}-`) && !nodesToDelete.has(node.id)) {
+            nodesToDelete.add(node.id);
+            queue.push(node.id);
+          }
+        });
+      }
+      
+      return prevNodes.filter(node => !nodesToDelete.has(node.id));
+    });
+    
+    setEdges(prevEdges => 
+      prevEdges.filter(edge => 
+        !edge.source.includes(nodeId) && !edge.target.includes(nodeId)
+      )
+    );
+    
+    setContextMenu(null);
+  }, [setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -513,6 +556,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeContextMenu={handleNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3, minZoom: 0.3, maxZoom: 1.5 }}
@@ -534,12 +578,21 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           maskColor="rgba(0, 0, 0, 0.8)"
         />
         <Background 
-          color="#64748b" 
-          gap={20} 
-          size={2}
-          className="opacity-40"
+          color="hsl(var(--primary))" 
+          gap={25} 
+          size={1}
+          className="opacity-20"
         />
       </ReactFlow>
+      
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onDelete={() => handleDeleteNode(contextMenu.nodeId)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };
