@@ -88,19 +88,25 @@ const calculateTreeLayout = (
 
       // Different positioning logic based on node type and level
       if (level === 1) {
-        // Title nodes - spread horizontally
-        const totalWidth = (nodeChildren.length - 1) * config.siblingSpacing;
+        // Title nodes - spread horizontally with equal spacing
+        const totalWidth = Math.max((nodeChildren.length - 1) * config.siblingSpacing, 0);
         const startX = parentX - totalWidth / 2;
         x = startX + (index * config.siblingSpacing);
         y = parentY + config.levelSpacing;
       } else if (level === 2) {
-        // Description nodes - directly below title nodes
+        // Description nodes - directly below their parent title nodes
         x = parentX;
         y = parentY + config.levelSpacing;
       } else {
-        // Child nodes from elaborate - vertically stacked below parent
-        x = parentX;
-        y = parentY + config.levelSpacing + (index * config.childSpacing);
+        // Elaborated child nodes - spread horizontally below parent
+        if (nodeChildren.length > 1) {
+          const childTotalWidth = (nodeChildren.length - 1) * (config.childSpacing + 50);
+          const childStartX = parentX - childTotalWidth / 2;
+          x = childStartX + (index * (config.childSpacing + 50));
+        } else {
+          x = parentX;
+        }
+        y = parentY + config.levelSpacing;
       }
 
       positionedNodes[childId] = { x, y };
@@ -534,7 +540,15 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         }}
         className="bg-canvas-bg"
       >
-        <Controls />
+        <Controls 
+          className="react-flow__controls premium-controls"
+          style={{
+            background: 'hsl(0 0% 5%)',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
+          }}
+        />
         <MiniMap 
           nodeColor={(node) => {
             switch (node.type) {
@@ -544,14 +558,20 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
               default: return 'hsl(var(--foreground))';
             }
           }}
-          maskColor="hsl(var(--background) / 0.8)"
+          maskColor="hsl(0 0% 0% / 0.9)"
+          style={{
+            background: 'hsl(0 0% 5%)',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
+          }}
         />
         <Background 
-          variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Cross}
-          gap={20}
-          size={1}
+          variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines}
+          gap={24}
+          size={1.5}
           color="hsl(var(--border))"
-          style={{ opacity: showGrid ? 0.3 : 0.1 }}
+          style={{ opacity: showGrid ? 0.6 : 0.3 }}
         />
       </ReactFlow>
 
