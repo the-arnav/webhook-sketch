@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
     host: "localhost",
     port: 8080,
     hmr: {
-      host: "0.0.0.0",
+      host: "localhost",
     },
   },
   plugins: [

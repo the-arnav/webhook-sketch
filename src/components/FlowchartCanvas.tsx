@@ -1,29 +1,21 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { 
-  ReactFlow, 
-  Node, 
-  Edge, 
-  Controls, 
-  MiniMap, 
-  Background, 
-  useNodesState, 
-  useEdgesState,
-  Connection,
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ReactFlow,
+  Node,
+  Edge,
   addEdge,
-  BackgroundVariant,
+  Connection,
+  useNodesState,
+  useEdgesState,
+  Controls,
+  MiniMap,
+  Background,
   MarkerType,
-  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
-import { ContextMenu } from './ContextMenu';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Layers, RotateCcw, Zap, Grid3X3 } from 'lucide-react';
-import { useSettings } from '@/contexts/SettingsContext';
-import { calculateProfessionalTreeLayout, positionElaboratedChildren } from '@/utils/nodeLayout';
-import { toast } from 'sonner';
 
 const nodeTypes = {
   subject: SubjectNode,
@@ -43,141 +35,439 @@ interface FlowchartCanvasProps {
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
 }
 
-const createMindMapLayout = (
-  nodes: Node[], 
-  edges: Edge[], 
-  customHorizontalSpacing?: number, 
-  customVerticalSpacing?: number
-): Node[] => {
-  if (nodes.length === 0) return nodes;
-
-  const positionedNodes: Record<string, { x: number; y: number }> = {};
-  const config = {
-    levelSpacing: customVerticalSpacing || 280,
-    siblingSpacing: customHorizontalSpacing || 450,
-    childSpacing: 250 // Spacing between elaborated child nodes
-  };
-
-  // Build parent-child relationships from edges
-  const children: Record<string, string[]> = {};
-  edges.forEach(edge => {
-    if (!children[edge.source]) {
-      children[edge.source] = [];
-    }
-    children[edge.source].push(edge.target);
-  });
-
-  // Categorize nodes by type
-  const subjectNode = nodes.find(n => n.type === 'subject');
-  const titleNodes = nodes.filter(n => n.type === 'title').sort((a, b) => {
-    const aNum = Number(a.data?.itemNumber) || 0;
-    const bNum = Number(b.data?.itemNumber) || 0;
-    return aNum - bNum;
-  });
-  
-  if (!subjectNode) return nodes;
-
-  // 1. Position subject node at center top
-  positionedNodes[subjectNode.id] = { x: 0, y: 0 };
-
-  // 2. Position title nodes horizontally in a row below subject
-  if (titleNodes.length > 0) {
-    const totalWidth = (titleNodes.length - 1) * config.siblingSpacing;
-    const startX = -totalWidth / 2;
-    
-    titleNodes.forEach((titleNode, index) => {
-      const x = startX + (index * config.siblingSpacing);
-      const y = config.levelSpacing;
-      positionedNodes[titleNode.id] = { x, y };
-    });
-  }
-
-  // 3. Position description nodes directly below their corresponding title nodes
-  titleNodes.forEach((titleNode) => {
-    const titleItemNumber = titleNode.data?.itemNumber;
-    const correspondingDesc = nodes.find(n => 
-      n.type === 'description' && n.data?.itemNumber === titleItemNumber
-    );
-    
-    if (correspondingDesc && positionedNodes[titleNode.id]) {
-      const titlePos = positionedNodes[titleNode.id];
-      positionedNodes[correspondingDesc.id] = {
-        x: titlePos.x,
-        y: titlePos.y + config.levelSpacing
-      };
-    }
-  });
-
-  // 4. Position elaborated children in structured branches below descriptions
-  const positionElaboratedChildren = (parentId: string, level: number = 3) => {
-    const parentPos = positionedNodes[parentId];
-    if (!parentPos) return;
-
-    const childIds = children[parentId] || [];
-    const elaboratedChildren = childIds.filter(childId => {
-      const childNode = nodes.find(n => n.id === childId);
-      return childNode && childNode.type !== 'title' && childNode.type !== 'description';
-    });
-
-    if (elaboratedChildren.length === 0) return;
-
-    // Position elaborated children horizontally below parent
-    const totalChildWidth = (elaboratedChildren.length - 1) * config.childSpacing;
-    const startX = parentPos.x - totalChildWidth / 2;
-    const childY = parentPos.y + config.levelSpacing;
-
-    elaboratedChildren.forEach((childId, index) => {
-      const x = startX + (index * config.childSpacing);
-      positionedNodes[childId] = { x, y: childY };
-      
-      // Recursively position deeper levels
-      positionElaboratedChildren(childId, level + 1);
-    });
-  };
-
-  // Apply elaborated children positioning to all description nodes
-  nodes.filter(n => n.type === 'description').forEach(descNode => {
-    positionElaboratedChildren(descNode.id);
-  });
-
-  // Apply positions to all nodes
-  return nodes.map(node => ({
-    ...node,
-    position: {
-      x: positionedNodes[node.id]?.x || node.position.x,
-      y: positionedNodes[node.id]?.y || node.position.y
-    }
-  }));
-};
-
 export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
-  const { horizontalSpacing, verticalSpacing, showGrid, autoLayout } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    nodeId: string;
-  } | null>(null);
-  const [isReorganizing, setIsReorganizing] = useState(false);
+
+  const { nodes: baseNodes, edges: baseEdges } = useMemo(() => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    if (data.length === 0) return { nodes, edges };
+
+    // Create the main Subject node at the top center
+    const subjectNodeId = 'subject-node';
+    nodes.push({
+      id: subjectNodeId,
+      type: 'subject',
+      position: { x: 0, y: 0 },
+      data: { 
+        subject: subject || 'Main Topic'
+      },
+    });
+
+    // Calculate layout for hierarchical structure with proper spacing
+    const titleRowY = 350; // Increased distance below subject
+    const descRowY = 650;  // Increased distance below titles
+    const nodeSpacing = 400; // Increased horizontal spacing between nodes
+    
+    // Center the nodes horizontally
+    const startX = -(data.length - 1) * nodeSpacing / 2;
+
+    data.forEach((item, index) => {
+      const titleNodeId = `title-${item.itemNumber}`;
+      const descNodeId = `desc-${item.itemNumber}`;
+      
+      // Position title nodes in a horizontal row
+      const titleX = startX + index * nodeSpacing;
+      
+      // Title node in middle row
+      nodes.push({
+        id: titleNodeId,
+        type: 'title',
+        position: { x: titleX, y: titleRowY },
+        data: { 
+          title: item.title,
+          itemNumber: item.itemNumber,
+          onElaborate: () => {},
+          isLoading: false
+        },
+      });
+
+      // Description node directly below its title
+      nodes.push({
+        id: descNodeId,
+        type: 'description',
+        position: { x: titleX, y: descRowY },
+        data: { 
+          description: item.description,
+          itemNumber: item.itemNumber,
+          onElaborate: () => {},
+          isLoading: false
+        },
+      });
+
+      // Edge from Subject to Title (from bottom of subject to top of title)
+      edges.push({
+        id: `subject-title-${item.itemNumber}`,
+        source: subjectNodeId,
+        sourceHandle: 'bottom',
+        target: titleNodeId,
+        targetHandle: 'top',
+        type: 'straight',
+        animated: true,
+        style: { 
+          stroke: 'hsl(270, 80%, 60%)', 
+          strokeWidth: 3,
+          filter: 'drop-shadow(0 0 15px hsl(270 80% 60% / 0.4))'
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(270, 80%, 60%)',
+          width: 8,
+          height: 8,
+        },
+      });
+
+      // Edge from Title to Description (from bottom of title to top of description)
+      edges.push({
+        id: `title-desc-${item.itemNumber}`,
+        source: titleNodeId,
+        sourceHandle: 'bottom',
+        target: descNodeId,
+        targetHandle: 'top',
+        type: 'straight',
+        animated: false,
+        style: { 
+          stroke: 'hsl(260, 70%, 50%)', 
+          strokeWidth: 2,
+          opacity: 0.8,
+          filter: 'drop-shadow(0 0 10px hsl(260 70% 50% / 0.3))'
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(260, 70%, 50%)',
+          width: 6,
+          height: 6,
+        },
+      });
+    });
+
+    return { nodes, edges };
+  }, [data, subject]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(baseNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
+
+  // Keep internal state in sync when incoming data/subject changes
+  useEffect(() => {
+    setNodes(baseNodes);
+    setEdges(baseEdges);
+  }, [baseNodes, baseEdges, setNodes, setEdges]);
+
+  // --- Layout helpers ---
+  type NodeMap = Map<string, Node>;
+  type ChildrenMap = Map<string, string[]>;
+
+  const layoutGraph = useCallback((inputNodes: Node[], inputEdges: Edge[]): Node[] => {
+    const horizontalSpacing = 320;
+    const verticalSpacing = 300;
+    const minGapX = 220;
+
+    const idToNode: NodeMap = new Map(inputNodes.map(n => [n.id, { ...n }]));
+    const children: ChildrenMap = new Map();
+    const indeg: Record<string, number> = {};
+    for (const n of inputNodes) indeg[n.id] = 0;
+    for (const e of inputEdges) {
+      if (!children.has(e.source)) children.set(e.source, []);
+      children.get(e.source)!.push(e.target);
+      indeg[e.target] = (indeg[e.target] ?? 0) + 1;
+    }
+
+    // Pick root: prefer subject node, else any node with indegree 0
+    const subjectNode = inputNodes.find(n => n.type === 'subject') || inputNodes.find(n => (indeg[n.id] ?? 0) === 0) || inputNodes[0];
+    if (!subjectNode) return inputNodes;
+
+    // Assign depths via BFS
+    const depth: Record<string, number> = {};
+    const queue: string[] = [subjectNode.id];
+    depth[subjectNode.id] = 0;
+    const visited = new Set<string>([subjectNode.id]);
+    while (queue.length) {
+      const u = queue.shift() as string;
+      const kids = children.get(u) || [];
+      for (const v of kids) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          depth[v] = (depth[u] ?? 0) + 1;
+          queue.push(v);
+        }
+      }
+    }
+
+    // Ensure root is near top center
+    const root = idToNode.get(subjectNode.id)!;
+    root.position = { x: root.position.x ?? 0, y: 0 } as any;
+
+    // Order children and place them under parents
+    const placeChildren = (parentId: string) => {
+      const parent = idToNode.get(parentId);
+      if (!parent) return;
+      const kids = (children.get(parentId) || []).filter(id => idToNode.has(id));
+      if (kids.length === 0) return;
+      const startX = parent.position.x - (horizontalSpacing * (kids.length - 1)) / 2;
+      kids.forEach((kidId, index) => {
+        const kid = idToNode.get(kidId)!;
+        kid.position = {
+          x: startX + index * horizontalSpacing,
+          y: parent.position.y + verticalSpacing,
+        } as any;
+      });
+      // recurse
+      kids.forEach(kidId => placeChildren(kidId));
+    };
+    placeChildren(subjectNode.id);
+
+    // Repel horizontally per depth level to maintain minGapX
+    const levels: Record<number, string[]> = {};
+    for (const [id, d] of Object.entries(depth)) {
+      if (!levels[d]) levels[d] = [];
+      levels[d].push(id);
+    }
+    for (const d of Object.keys(levels).map(Number).sort((a, b) => a - b)) {
+      const ids = levels[d].filter(id => idToNode.has(id));
+      ids.sort((a, b) => idToNode.get(a)!.position.x - idToNode.get(b)!.position.x);
+      for (let i = 1; i < ids.length; i++) {
+        const prev = idToNode.get(ids[i - 1])!;
+        const curr = idToNode.get(ids[i])!;
+        const dx = (prev.position.x + minGapX) - curr.position.x;
+        if (dx > 0) {
+          // shift subtree of curr to the right by dx
+          const shiftQueue = [ids[i]];
+          while (shiftQueue.length) {
+            const nid = shiftQueue.shift() as string;
+            const n = idToNode.get(nid)!;
+            n.position = { x: n.position.x + dx, y: n.position.y } as any;
+            for (const ch of (children.get(nid) || [])) shiftQueue.push(ch);
+          }
+        }
+      }
+    }
+
+    return Array.from(idToNode.values());
+  }, []);
+
+  // Attach handlers and loading state to current nodes whenever either changes
+  const attachHandlers = useCallback(() => {
+    setNodes(prev => prev.map(n => {
+      if (n.type === 'title') {
+        return { ...n, data: { ...n.data, onElaborate: handleElaborate, isLoading: loadingNodes.has(n.id) } } as Node;
+      }
+      if (n.type === 'description') {
+        return { ...n, data: { ...n.data, onElaborate: handleElaborate, isLoading: loadingNodes.has(n.id) } } as Node;
+      }
+      return n;
+    }));
+  }, [setNodes, loadingNodes]);
+
+  // Ensure node buttons are wired and loading states reflected
+  useEffect(() => {
+    attachHandlers();
+  }, [attachHandlers, baseNodes, loadingNodes]);
+
+  // Emit snapshots and apply layout when graph changes
+  useEffect(() => {
+    const laidOut = layoutGraph(nodes, edges);
+    setNodes(laidOut);
+    onSnapshot?.({ nodes: laidOut, edges });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges]);
+
+  const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
+    // Prefer the specified shape: response[0].output.items
+    const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
+      ? responseJson[0].output.items
+      : (responseJson?.output?.items || responseJson?.items || (Array.isArray(responseJson) ? responseJson : []));
+
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    setNodes(prevNodes => {
+      const parent = prevNodes.find(n => n.id === parentNodeId);
+      if (!parent) return prevNodes;
+
+      const existingIds = new Set(prevNodes.map(n => n.id));
+
+      // Determine how many children already exist for this parent to stagger rows
+      const existingChildrenCount = prevNodes.filter(n => n.id.startsWith(`${parentNodeId}-`)).length;
+
+      // Layout parameters (deterministic lanes per parent)
+      const horizontalSpacing = 320; // even spacing between siblings
+      const verticalSpacing = 500;   // distance from parent to children row
+      const nodeWidth = 260;         // approximate node width for interval collision
+      const rowSnap = 80;            // y tolerance to treat nodes as same row
+      const baseY = parent.position.y + verticalSpacing;
+
+      // Build occupied intervals on this children row to avoid cross-parent overlap
+      // children row we are targeting
+      const childrenRowY = baseY;
+      const occupiedIntervals: Array<{ left: number; right: number }> = prevNodes
+        .filter(n => Math.abs(n.position.y - childrenRowY) < rowSnap)
+        .map(n => ({ left: n.position.x - nodeWidth / 2, right: n.position.x + nodeWidth / 2 }))
+        .sort((a, b) => a.left - b.left);
+
+      const intersects = (left: number, right: number) => {
+        return occupiedIntervals.some(iv => !(right <= iv.left || left >= iv.right));
+      };
+
+      const reserveSlot = (centerX: number) => {
+        // Shift by multiples of horizontalSpacing until a free slot is found
+        let x = centerX;
+        let guard = 0;
+        while (guard++ < 200) {
+          const left = x - nodeWidth / 2;
+          const right = x + nodeWidth / 2;
+          if (!intersects(left, right)) {
+            occupiedIntervals.push({ left, right });
+            return x;
+          }
+          // Try shifting alternately right and left
+          const step = Math.ceil(guard / 2) * horizontalSpacing;
+          x = guard % 2 === 0 ? centerX - step : centerX + step;
+        }
+        return centerX; // fallback
+      };
+
+      const placedNodes: Node[] = [];
+      const totalChildren = existingChildrenCount + items.length;
+      const firstIndex = existingChildrenCount; // new indices start after existing
+      const startX = parent.position.x - (horizontalSpacing * (totalChildren - 1)) / 2;
+
+      const newNodes: Node[] = items.map((item: any, idx: number) => {
+        const itemNumber = item.itemNumber ?? idx + 1;
+        const id = `${parentNodeId}-${itemNumber}`;
+        const desiredX = startX + (firstIndex + idx) * horizontalSpacing;
+        const desiredY = baseY;
+
+        // Reserve a non-overlapping slot on this row
+        const chosenX = reserveSlot(desiredX);
+        const chosenY = desiredY;
+
+        const node: Node = {
+          id,
+          type: 'description',
+          position: { x: chosenX, y: chosenY },
+          data: {
+            description: item.description ?? 'No description',
+            itemNumber,
+            onElaborate: handleElaborate,
+            isLoading: false,
+            title: item.title ?? ''
+          }
+        } as Node;
+
+        placedNodes.push(node);
+        return node;
+      }).filter(n => !existingIds.has(n.id));
+
+      if (newNodes.length === 0) return prevNodes;
+
+      // Merge first so we can compute row groups
+      let merged = [...prevNodes, ...newNodes];
+
+      // Enforce minimum spacing between sibling branches by shifting whole subtrees
+      const minBranchGap = 100; // minimum gap between children blocks on the same row
+
+      // Build groups for this row: bounds per parent based on its children on childrenRowY
+      type Group = { parentId: string; left: number; right: number };
+      const groupsMap = new Map<string, Group>();
+      for (const n of merged) {
+        if (!n.id.startsWith(`${parentNodeId.split('-')[0]}`)) {
+          // not necessarily related; we'll derive group by parent prefixes next
+        }
+      }
+
+      // Identify all parents that have children on this row
+      const parentIdsOnRow = new Set<string>();
+      for (const n of merged) {
+        // child ids are in format `${parentId}-X`
+        const dashIdx = n.id.lastIndexOf('-');
+        if (dashIdx > 0) {
+          const maybeParent = n.id.substring(0, dashIdx);
+          // verify this is a child of a real parent node existing
+          const p = merged.find(x => x.id === maybeParent);
+          if (p && Math.abs(n.position.y - childrenRowY) < rowSnap) parentIdsOnRow.add(maybeParent);
+        }
+      }
+
+      const groups: Group[] = [];
+      for (const pid of parentIdsOnRow) {
+        const kids = merged.filter(n => n.id.startsWith(`${pid}-`) && Math.abs(n.position.y - childrenRowY) < rowSnap);
+        if (kids.length === 0) continue;
+        const xs = kids.map(k => k.position.x);
+        const left = Math.min(...xs) - nodeWidth / 2;
+        const right = Math.max(...xs) + nodeWidth / 2;
+        groups.push({ parentId: pid, left, right });
+      }
+
+      groups.sort((a, b) => a.left - b.left);
+
+      const shiftSubtree = (rootId: string, dx: number) => {
+        merged = merged.map(n => {
+          if (n.id === rootId || n.id.startsWith(`${rootId}-`)) {
+            return { ...n, position: { x: n.position.x + dx, y: n.position.y } } as Node;
+          }
+          return n;
+        });
+      };
+
+      for (let i = 1; i < groups.length; i++) {
+        const prev = groups[i - 1];
+        const curr = groups[i];
+        if (curr.left < prev.right + minBranchGap) {
+          const needed = prev.right + minBranchGap - curr.left;
+          shiftSubtree(curr.parentId, needed);
+          curr.left += needed;
+          curr.right += needed;
+          // propagate shift to subsequent groups
+          for (let j = i + 1; j < groups.length; j++) {
+            groups[j].left += needed;
+            groups[j].right += needed;
+          }
+        }
+      }
+
+      return merged;
+    });
+
+    setEdges(prevEdges => {
+      const existingEdgeIds = new Set(prevEdges.map(e => e.id));
+      const newEdges: Edge[] = items.map((item: any, idx: number) => {
+        const itemNumber = item.itemNumber ?? idx + 1;
+        const targetId = `${parentNodeId}-${itemNumber}`;
+        const id = `${parentNodeId}->${targetId}`;
+        return {
+          id,
+          source: parentNodeId,
+          sourceHandle: 'bottom',
+          target: targetId,
+          targetHandle: 'top',
+          type: 'straight',
+          animated: false,
+          style: { 
+            stroke: 'hsl(280, 60%, 45%)', 
+            strokeWidth: 2,
+            opacity: 0.7,
+            filter: 'drop-shadow(0 0 8px hsl(280 60% 45% / 0.3))'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'hsl(280, 60%, 45%)',
+            width: 6,
+            height: 6,
+          },
+        } as Edge;
+      }).filter(e => !existingEdgeIds.has(e.id));
+
+      if (newEdges.length === 0) return prevEdges;
+      return [...prevEdges, ...newEdges];
+    });
+  }, [setNodes, setEdges]);
 
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
       return;
     }
 
-    // Set loading state for the specific node
     setLoadingNodes(prev => new Set([...prev, nodeId]));
-    
-    // Update the node to show loading state
-    setNodes(prevNodes => 
-      prevNodes.map(node => 
-        node.id === nodeId 
-          ? { ...node, data: { ...node.data, isLoading: true } }
-          : node
-      )
-    );
 
     try {
       const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
@@ -195,323 +485,20 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       }
 
       const result = await response.json();
-      console.log('Elaborate response:', result);
       handleElaborateResponse(nodeId, result);
     } catch (error) {
       console.error('Error elaborating node:', error);
-      toast.error('Failed to elaborate. Please try again.');
+      alert('Failed to elaborate. Please try again.');
     } finally {
-      // Remove loading state
       setLoadingNodes(prev => {
         const newSet = new Set(prev);
         newSet.delete(nodeId);
         return newSet;
       });
-      
-      // Update node to remove loading state
-      setNodes(prevNodes => 
-        prevNodes.map(node => 
-          node.id === nodeId 
-            ? { ...node, data: { ...node.data, isLoading: false } }
-            : node
-        )
-      );
     }
-  }, [loadingNodes]);
+  }, [loadingNodes, handleElaborateResponse]);
 
-  const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
-    const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
-      ? responseJson[0].output.items
-      : (responseJson?.output?.items || responseJson?.items || (Array.isArray(responseJson) ? responseJson : []));
-
-    if (!Array.isArray(items) || items.length === 0) {
-      console.log('No items found in response:', responseJson);
-      toast.error('No content received from elaboration');
-      return;
-    }
-
-    console.log('Processing elaborate response with', items.length, 'items');
-
-    // Find parent node for positioning
-    const parentNode = nodes.find(n => n.id === parentNodeId);
-    if (!parentNode) return;
-
-    // Create new child nodes
-    const newNodes: Node[] = items.map((item: any, idx: number) => {
-      const itemNumber = item.itemNumber ?? idx + 1;
-      const id = `${parentNodeId}-child-${itemNumber}`;
-      
-      return {
-        id,
-        type: 'description',
-        position: { x: 0, y: 0 }, // Will be positioned by layout
-        data: {
-          description: item.description ?? 'No description',
-          itemNumber,
-          onElaborate: handleElaborate,
-          isLoading: false,
-          title: item.title ?? ''
-        },
-        draggable: true,
-        selectable: true,
-      } as Node;
-    });
-
-    // Create new edges connecting parent to children
-    const newEdges: Edge[] = items.map((item: any, idx: number) => {
-      const itemNumber = item.itemNumber ?? idx + 1;
-      const targetId = `${parentNodeId}-child-${itemNumber}`;
-      const edgeId = `${parentNodeId}->${targetId}`;
-      
-      return {
-        id: edgeId,
-        source: parentNodeId,
-        sourceHandle: 'bottom',
-        target: targetId,
-        targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(var(--primary))', 
-          strokeWidth: 2,
-          opacity: 0.7,
-          filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(var(--primary))',
-          width: 6,
-          height: 6,
-        },
-      } as Edge;
-    });
-
-    // Add new nodes and edges to the graph
-    setNodes(prevNodes => {
-      const updatedNodes = [...prevNodes, ...newNodes];
-      
-      // Apply auto-layout if enabled
-      if (autoLayout) {
-        return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
-      }
-      
-      // Manual positioning for new nodes
-      return positionElaboratedChildren(
-        parentNode,
-        newNodes,
-        prevNodes,
-        {
-          nodeWidth: 300,
-          nodeHeight: 150,
-          levelSpacing: verticalSpacing,
-          siblingSpacing: horizontalSpacing,
-          childSpacing: 160,
-          centerAlignment: true,
-          collisionDetection: true
-        }
-      );
-    });
-
-    setEdges(prevEdges => [...prevEdges, ...newEdges]);
-    
-    toast.success(`Added ${items.length} new nodes`);
-  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate]);
-
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    setNodes(prevNodes => {
-      // Find all descendant nodes to delete
-      const nodesToDelete = new Set([nodeId]);
-      const findDescendants = (id: string) => {
-        edges.forEach(edge => {
-          if (edge.source === id && !nodesToDelete.has(edge.target)) {
-            nodesToDelete.add(edge.target);
-            findDescendants(edge.target);
-          }
-        });
-      };
-      findDescendants(nodeId);
-      
-      return prevNodes.filter(node => !nodesToDelete.has(node.id));
-    });
-    
-    setEdges(prevEdges => 
-      prevEdges.filter(edge => 
-        edge.source !== nodeId && edge.target !== nodeId
-      )
-    );
-    
-    setContextMenu(null);
-    toast.success('Node deleted successfully');
-  }, [edges]);
-
-  const handleReorganize = useCallback(() => {
-    setIsReorganizing(true);
-    
-    setTimeout(() => {
-      const layoutedNodes = createMindMapLayout(nodes, edges, horizontalSpacing, verticalSpacing);
-      setNodes(layoutedNodes);
-      setIsReorganizing(false);
-      toast.success('Canvas reorganized');
-    }, 100);
-  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
-
-  const handleTidyUp = useCallback(() => {
-    setIsReorganizing(true);
-    
-    setTimeout(() => {
-      const layoutedNodes = calculateProfessionalTreeLayout(
-        nodes,
-        edges,
-        {
-          nodeWidth: 300,
-          nodeHeight: 150,
-          levelSpacing: verticalSpacing,
-          siblingSpacing: horizontalSpacing,
-          childSpacing: 160,
-          centerAlignment: true,
-          collisionDetection: true
-        }
-      );
-      setNodes(layoutedNodes);
-      setIsReorganizing(false);
-      toast.success('Canvas tidied up');
-    }, 100);
-  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
-
-  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
-    event.preventDefault();
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      nodeId: node.id
-    });
-  }, []);
-
-  const handleNodeDuplicate = useCallback((nodeId: string) => {
-    const originalNode = nodes.find(n => n.id === nodeId);
-    if (!originalNode) return;
-
-    const newNode: Node = {
-      ...originalNode,
-      id: `${nodeId}-copy-${Date.now()}`,
-      position: {
-        x: originalNode.position.x + 50,
-        y: originalNode.position.y + 50
-      },
-      data: {
-        ...originalNode.data,
-        onElaborate: handleElaborate
-      }
-    };
-
-    setNodes(prevNodes => [...prevNodes, newNode]);
-    setContextMenu(null);
-    toast.success('Node duplicated');
-  }, [nodes, handleElaborate]);
-
-  const initialNodes = useMemo(() => {
-    if (!data || data.length === 0) return [];
-
-    const subjectNode: Node = {
-      id: 'subject',
-      type: 'subject',
-      position: { x: 0, y: 0 },
-      data: { subject: subject || 'Main Topic' },
-      draggable: true,
-      selectable: true,
-    };
-
-    const titleNodes: Node[] = data.map((item, index) => ({
-      id: `title-${item.itemNumber}`,
-      type: 'title',
-      position: { x: 0, y: 0 }, // Will be positioned by layout
-      data: { 
-        title: item.title, 
-        itemNumber: item.itemNumber,
-        onElaborate: handleElaborate,
-        isLoading: false 
-      },
-      draggable: true,
-      selectable: true,
-    }));
-
-    const descriptionNodes: Node[] = data.map((item, index) => ({
-      id: `desc-${item.itemNumber}`,
-      type: 'description',
-      position: { x: 0, y: 0 }, // Will be positioned by layout
-      data: { 
-        description: item.description, 
-        itemNumber: item.itemNumber,
-        onElaborate: handleElaborate,
-        isLoading: false 
-      },
-      draggable: true,
-      selectable: true,
-    }));
-
-    const allNodes = [subjectNode, ...titleNodes, ...descriptionNodes];
-    return createMindMapLayout(allNodes, [], horizontalSpacing, verticalSpacing);
-  }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
-
-  const initialEdges = useMemo(() => {
-    if (!data || data.length === 0) return [];
-
-    const subjectToTitleEdges: Edge[] = data.map((item) => ({
-      id: `subject->title-${item.itemNumber}`,
-      source: 'subject',
-      sourceHandle: 'bottom',
-      target: `title-${item.itemNumber}`,
-      targetHandle: 'top',
-      type: 'straight',
-      animated: true,
-      style: { 
-        stroke: 'var(--edge-primary)', 
-        strokeWidth: 3,
-        filter: 'var(--edge-glow)'
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: 'var(--edge-primary)',
-        width: 8,
-        height: 8,
-      },
-    }));
-
-    const titleToDescEdges: Edge[] = data.map((item) => ({
-      id: `title-${item.itemNumber}->desc-${item.itemNumber}`,
-      source: `title-${item.itemNumber}`,
-      sourceHandle: 'bottom',
-      target: `desc-${item.itemNumber}`,
-      targetHandle: 'top',
-      type: 'straight',
-      animated: true,
-      style: { 
-        stroke: 'var(--edge-secondary)', 
-        strokeWidth: 2,
-        opacity: 0.8,
-        filter: 'var(--edge-glow)'
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: 'var(--edge-secondary)',
-        width: 6,
-        height: 6,
-      },
-    }));
-
-    return [...subjectToTitleEdges, ...titleToDescEdges];
-  }, [data]);
-
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges]);
-
-  useEffect(() => {
-    if (onSnapshot) {
-      onSnapshot({ nodes, edges });
-    }
-  }, [nodes, edges, onSnapshot]);
+  // Removed duplicate nodes/edges calculation and state hooks that caused redeclaration
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -519,114 +506,40 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   );
 
   return (
-    <div className="relative w-full h-full bg-canvas-bg">
-      {/* Canvas Controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReorganize}
-          disabled={isReorganizing}
-          className="glass-panel border-border hover:bg-accent/50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isReorganizing ? 'animate-spin' : ''}`} />
-          {isReorganizing ? 'Organizing...' : 'Reorganize'}
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleTidyUp}
-          disabled={isReorganizing}
-          className="glass-panel border-border hover:bg-accent/50"
-        >
-          <Zap className={`w-4 h-4 ${isReorganizing ? 'animate-pulse' : ''}`} />
-          Tidy Up
-        </Button>
-      </div>
-
+    <div className="w-full h-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeContextMenu={handleNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{
-          padding: 0.2,
-          includeHiddenNodes: false,
-          maxZoom: 1.2,
-          minZoom: 0.1,
+        fitViewOptions={{ padding: 0.3, minZoom: 0.3, maxZoom: 1.5 }}
+        minZoom={0.3}
+        maxZoom={1.5}
+        defaultEdgeOptions={{
+          type: 'straight',
+          animated: false,
         }}
-        className="bg-canvas-bg"
       >
-        <Controls 
-          className="react-flow__controls premium-controls"
-          style={{
-            background: 'hsl(0 0% 5%)',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
-          }}
-        />
+        <Controls className="glass-panel" />
         <MiniMap 
+          className="glass-panel"
           nodeColor={(node) => {
-            switch (node.type) {
-              case 'subject': return 'hsl(var(--primary))';
-              case 'title': return 'hsl(var(--accent))';
-              case 'description': return 'hsl(var(--muted))';
-              default: return 'hsl(var(--foreground))';
-            }
+            if (node.type === 'subject') return '#a855f7';
+            if (node.type === 'title') return '#8b5cf6';
+            return '#6366f1';
           }}
-          maskColor="hsl(0 0% 0% / 0.9)"
-          style={{
-            background: 'hsl(0 0% 5%)',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
-          }}
+          maskColor="rgba(0, 0, 0, 0.8)"
         />
         <Background 
-          variant={BackgroundVariant.Dots}
-          gap={32}
+          color="#64748b" 
+          gap={20} 
           size={2}
-          color="hsl(var(--border))"
-          style={{ opacity: showGrid ? 0.8 : 0.4 }}
+          className="opacity-40"
         />
       </ReactFlow>
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          onDelete={() => handleDeleteNode(contextMenu.nodeId)}
-          onEdit={() => {
-            // TODO: Implement edit functionality
-            setContextMenu(null);
-            toast.info('Edit functionality coming soon');
-          }}
-          onDuplicate={() => handleNodeDuplicate(contextMenu.nodeId)}
-          onMove={() => {
-            // TODO: Implement move functionality
-            setContextMenu(null);
-            toast.info('Move functionality coming soon');
-          }}
-          onToggleLock={() => {
-            // TODO: Implement lock functionality
-            setContextMenu(null);
-            toast.info('Lock functionality coming soon');
-          }}
-          onChangeColor={() => {
-            // TODO: Implement color change functionality
-            setContextMenu(null);
-            toast.info('Color change functionality coming soon');
-          }}
-        />
-      )}
     </div>
   );
 };

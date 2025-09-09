@@ -40,11 +40,6 @@ All colors MUST be HSL.
     --canvas-bg: hsl(0 0% 0%);
     --canvas-overlay: transparent;
     
-    /* ReactFlow Controls Premium Styling */
-    --control-bg: hsl(0 0% 5%);
-    --control-border: hsl(var(--border));
-    --control-shadow: 0 10px 30px -10px hsl(0 0% 0% / 0.8);
-    
     --node-subject-bg: hsl(0 0% 8%);
     --node-subject-border: hsl(0 0% 20%);
     --node-subject-shadow: 0 25px 60px -20px hsl(0 0% 0% / 0.8);
