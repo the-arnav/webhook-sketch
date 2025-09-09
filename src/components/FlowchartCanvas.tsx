@@ -53,12 +53,12 @@ const createMindMapLayout = (
 
   const positionedNodes: Record<string, { x: number; y: number }> = {};
   const config = {
-    levelSpacing: customVerticalSpacing || 250,
-    siblingSpacing: customHorizontalSpacing || 400,
-    childSpacing: 350 // Spacing between elaborated child nodes
+    levelSpacing: customVerticalSpacing || 280,
+    siblingSpacing: customHorizontalSpacing || 450,
+    childSpacing: 250 // Spacing between elaborated child nodes
   };
 
-  // Build parent-child relationships
+  // Build parent-child relationships from edges
   const children: Record<string, string[]> = {};
   edges.forEach(edge => {
     if (!children[edge.source]) {
@@ -67,20 +67,23 @@ const createMindMapLayout = (
     children[edge.source].push(edge.target);
   });
 
-  // Find and categorize nodes
+  // Categorize nodes by type
   const subjectNode = nodes.find(n => n.type === 'subject');
-  const titleNodes = nodes.filter(n => n.type === 'title');
-  const descriptionNodes = nodes.filter(n => n.type === 'description');
+  const titleNodes = nodes.filter(n => n.type === 'title').sort((a, b) => {
+    const aNum = Number(a.data?.itemNumber) || 0;
+    const bNum = Number(b.data?.itemNumber) || 0;
+    return aNum - bNum;
+  });
   
   if (!subjectNode) return nodes;
 
-  // Position subject node at center top
+  // 1. Position subject node at center top
   positionedNodes[subjectNode.id] = { x: 0, y: 0 };
 
-  // Position title nodes horizontally below subject
+  // 2. Position title nodes horizontally in a row below subject
   if (titleNodes.length > 0) {
-    const totalTitleWidth = (titleNodes.length - 1) * config.siblingSpacing;
-    const startX = -totalTitleWidth / 2;
+    const totalWidth = (titleNodes.length - 1) * config.siblingSpacing;
+    const startX = -totalWidth / 2;
     
     titleNodes.forEach((titleNode, index) => {
       const x = startX + (index * config.siblingSpacing);
@@ -89,23 +92,23 @@ const createMindMapLayout = (
     });
   }
 
-  // Position description nodes directly below their title nodes
-  titleNodes.forEach(titleNode => {
-    const titleChildren = children[titleNode.id] || [];
-    const descChild = titleChildren.find(childId => 
-      nodes.find(n => n.id === childId)?.type === 'description'
+  // 3. Position description nodes directly below their corresponding title nodes
+  titleNodes.forEach((titleNode) => {
+    const titleItemNumber = titleNode.data?.itemNumber;
+    const correspondingDesc = nodes.find(n => 
+      n.type === 'description' && n.data?.itemNumber === titleItemNumber
     );
     
-    if (descChild && positionedNodes[titleNode.id]) {
+    if (correspondingDesc && positionedNodes[titleNode.id]) {
       const titlePos = positionedNodes[titleNode.id];
-      positionedNodes[descChild] = {
+      positionedNodes[correspondingDesc.id] = {
         x: titlePos.x,
         y: titlePos.y + config.levelSpacing
       };
     }
   });
 
-  // Position elaborated children horizontally below their parents
+  // 4. Position elaborated children in structured branches below descriptions
   const positionElaboratedChildren = (parentId: string, level: number = 3) => {
     const parentPos = positionedNodes[parentId];
     if (!parentPos) return;
@@ -113,12 +116,12 @@ const createMindMapLayout = (
     const childIds = children[parentId] || [];
     const elaboratedChildren = childIds.filter(childId => {
       const childNode = nodes.find(n => n.id === childId);
-      return childNode && !['title', 'description'].includes(childNode.type || '');
+      return childNode && childNode.type !== 'title' && childNode.type !== 'description';
     });
 
     if (elaboratedChildren.length === 0) return;
 
-    // Position elaborated children horizontally
+    // Position elaborated children horizontally below parent
     const totalChildWidth = (elaboratedChildren.length - 1) * config.childSpacing;
     const startX = parentPos.x - totalChildWidth / 2;
     const childY = parentPos.y + config.levelSpacing;
@@ -127,17 +130,17 @@ const createMindMapLayout = (
       const x = startX + (index * config.childSpacing);
       positionedNodes[childId] = { x, y: childY };
       
-      // Recursively position their children
+      // Recursively position deeper levels
       positionElaboratedChildren(childId, level + 1);
     });
   };
 
-  // Position elaborated children for all description nodes
-  descriptionNodes.forEach(descNode => {
+  // Apply elaborated children positioning to all description nodes
+  nodes.filter(n => n.type === 'description').forEach(descNode => {
     positionElaboratedChildren(descNode.id);
   });
 
-  // Apply positions to nodes
+  // Apply positions to all nodes
   return nodes.map(node => ({
     ...node,
     position: {
