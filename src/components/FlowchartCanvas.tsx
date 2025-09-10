@@ -295,21 +295,26 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
       }
       
-      // Manual positioning for new nodes
-      return positionElaboratedChildren(
-        parentNode,
-        newNodes,
-        prevNodes,
-        {
-          nodeWidth: 300,
-          nodeHeight: 150,
-          levelSpacing: verticalSpacing,
-          siblingSpacing: horizontalSpacing,
-          childSpacing: 160,
-          centerAlignment: true,
-          collisionDetection: true
-        }
-      );
+      // Manual positioning for new nodes using proper spacing
+      const positionedNewNodes = newNodes.map((newNode, index) => {
+        const parentPos = parentNode.position;
+        const childSpacing = 200;
+        const levelSpacing = verticalSpacing || 250;
+        
+        // Position children horizontally spread below parent
+        const totalWidth = (newNodes.length - 1) * childSpacing;
+        const startX = parentPos.x - totalWidth / 2;
+        
+        return {
+          ...newNode,
+          position: {
+            x: startX + (index * childSpacing),
+            y: parentPos.y + levelSpacing
+          }
+        };
+      });
+      
+      return [...prevNodes, ...positionedNewNodes];
     });
 
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
