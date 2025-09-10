@@ -508,9 +508,12 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   }, [data]);
 
   useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges]);
+    // Only initialize nodes if they're empty to prevent wiping elaborated children
+    if (nodes.length === 0) {
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+    }
+  }, [initialNodes, initialEdges, nodes.length]);
 
   useEffect(() => {
     if (onSnapshot) {
@@ -595,10 +598,10 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         />
         <Background 
           variant={BackgroundVariant.Dots}
-          gap={32}
-          size={2}
-          color="hsl(var(--border))"
-          style={{ opacity: showGrid ? 0.8 : 0.4 }}
+          gap={24}
+          size={3}
+          color="hsl(var(--primary))"
+          style={{ opacity: showGrid ? 0.6 : 0.3 }}
         />
       </ReactFlow>
 
