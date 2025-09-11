@@ -12,7 +12,8 @@ import {
   addEdge,
   BackgroundVariant,
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  ReactFlowProvider
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
@@ -550,114 +551,116 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot, initialSnapshot }: 
   );
 
   return (
-    <div className="relative w-full h-full bg-canvas-bg">
-      {/* Canvas Controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReorganize}
-          disabled={isReorganizing}
-          className="glass-panel border-border hover:bg-accent/50"
+    <ReactFlowProvider>
+      <div className="relative w-full h-full bg-canvas-bg">
+        {/* Canvas Controls */}
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReorganize}
+            disabled={isReorganizing}
+            className="glass-panel border-border hover:bg-accent/50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isReorganizing ? 'animate-spin' : ''}`} />
+            {isReorganizing ? 'Organizing...' : 'Reorganize'}
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTidyUp}
+            disabled={isReorganizing}
+            className="glass-panel border-border hover:bg-accent/50"
+          >
+            <Zap className={`w-4 h-4 ${isReorganizing ? 'animate-pulse' : ''}`} />
+            Tidy Up
+          </Button>
+        </div>
+
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeContextMenu={handleNodeContextMenu}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{
+            padding: 0.2,
+            includeHiddenNodes: false,
+            maxZoom: 1.2,
+            minZoom: 0.1,
+          }}
+          className="bg-canvas-bg"
         >
-          <RefreshCw className={`w-4 h-4 ${isReorganizing ? 'animate-spin' : ''}`} />
-          {isReorganizing ? 'Organizing...' : 'Reorganize'}
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleTidyUp}
-          disabled={isReorganizing}
-          className="glass-panel border-border hover:bg-accent/50"
-        >
-          <Zap className={`w-4 h-4 ${isReorganizing ? 'animate-pulse' : ''}`} />
-          Tidy Up
-        </Button>
+          <Controls 
+            className="react-flow__controls premium-controls"
+            style={{
+              background: 'hsl(0 0% 5%)',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
+            }}
+          />
+          <MiniMap 
+            nodeColor={(node) => {
+              switch (node.type) {
+                case 'subject': return 'hsl(var(--primary))';
+                case 'title': return 'hsl(var(--accent))';
+                case 'description': return 'hsl(var(--muted))';
+                default: return 'hsl(var(--foreground))';
+              }
+            }}
+            maskColor="hsl(0 0% 0% / 0.9)"
+            style={{
+              background: 'hsl(0 0% 5%)',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
+            }}
+          />
+          <Background 
+            variant={BackgroundVariant.Dots}
+            gap={24}
+            size={3}
+            color="hsl(var(--primary))"
+            style={{ opacity: showGrid ? 0.6 : 0.3 }}
+          />
+        </ReactFlow>
+
+        {/* Context Menu */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onDelete={() => handleDeleteNode(contextMenu.nodeId)}
+            onEdit={() => {
+              // TODO: Implement edit functionality
+              setContextMenu(null);
+              toast.info('Edit functionality coming soon');
+            }}
+            onDuplicate={() => handleNodeDuplicate(contextMenu.nodeId)}
+            onMove={() => {
+              // TODO: Implement move functionality
+              setContextMenu(null);
+              toast.info('Move functionality coming soon');
+            }}
+            onToggleLock={() => {
+              // TODO: Implement lock functionality
+              setContextMenu(null);
+              toast.info('Lock functionality coming soon');
+            }}
+            onChangeColor={() => {
+              // TODO: Implement color change functionality
+              setContextMenu(null);
+              toast.info('Color change functionality coming soon');
+            }}
+          />
+        )}
       </div>
-
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeContextMenu={handleNodeContextMenu}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{
-          padding: 0.2,
-          includeHiddenNodes: false,
-          maxZoom: 1.2,
-          minZoom: 0.1,
-        }}
-        className="bg-canvas-bg"
-      >
-        <Controls 
-          className="react-flow__controls premium-controls"
-          style={{
-            background: 'hsl(0 0% 5%)',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
-          }}
-        />
-        <MiniMap 
-          nodeColor={(node) => {
-            switch (node.type) {
-              case 'subject': return 'hsl(var(--primary))';
-              case 'title': return 'hsl(var(--accent))';
-              case 'description': return 'hsl(var(--muted))';
-              default: return 'hsl(var(--foreground))';
-            }
-          }}
-          maskColor="hsl(0 0% 0% / 0.9)"
-          style={{
-            background: 'hsl(0 0% 5%)',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
-          }}
-        />
-        <Background 
-          variant={BackgroundVariant.Dots}
-          gap={24}
-          size={3}
-          color="hsl(var(--primary))"
-          style={{ opacity: showGrid ? 0.6 : 0.3 }}
-        />
-      </ReactFlow>
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          onDelete={() => handleDeleteNode(contextMenu.nodeId)}
-          onEdit={() => {
-            // TODO: Implement edit functionality
-            setContextMenu(null);
-            toast.info('Edit functionality coming soon');
-          }}
-          onDuplicate={() => handleNodeDuplicate(contextMenu.nodeId)}
-          onMove={() => {
-            // TODO: Implement move functionality
-            setContextMenu(null);
-            toast.info('Move functionality coming soon');
-          }}
-          onToggleLock={() => {
-            // TODO: Implement lock functionality
-            setContextMenu(null);
-            toast.info('Lock functionality coming soon');
-          }}
-          onChangeColor={() => {
-            // TODO: Implement color change functionality
-            setContextMenu(null);
-            toast.info('Color change functionality coming soon');
-          }}
-        />
-      )}
-    </div>
+    </ReactFlowProvider>
   );
 };
