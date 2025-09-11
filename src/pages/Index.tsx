@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { saveCanvas as saveCanvasSupabase, updateCanvas } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { ReactFlowProvider } from '@xyflow/react';
 import type { Node, Edge } from '@xyflow/react';
 
 interface FlowchartData {
@@ -289,12 +290,14 @@ const Index = () => {
         <div className="flex-1 relative">
           <div className="bg-animated" />
           <div className="h-full relative z-10">
-            <FlowchartCanvas 
-              data={flowchartData} 
-              subject={subject}
-              onSnapshot={handleSnapshot}
-              initialSnapshot={latestSnapshotRef.current}
-            />
+            <ReactFlowProvider>
+              <FlowchartCanvas 
+                data={flowchartData} 
+                subject={subject}
+                onSnapshot={handleSnapshot}
+                initialSnapshot={latestSnapshotRef.current}
+              />
+            </ReactFlowProvider>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 flex justify-center pb-8 z-20">
