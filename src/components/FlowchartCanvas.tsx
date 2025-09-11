@@ -41,6 +41,7 @@ interface FlowchartCanvasProps {
   data: FlowchartData[];
   subject?: string;
   onSnapshot?: (snapshot: { nodes: Node[]; edges: Edge[] }) => void;
+  initialSnapshot?: { nodes: Node[]; edges: Edge[] } | null;
 }
 
 const createMindMapLayout = (
@@ -150,7 +151,7 @@ const createMindMapLayout = (
   }));
 };
 
-export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasProps) => {
+export const FlowchartCanvas = ({ data, subject, onSnapshot, initialSnapshot }: FlowchartCanvasProps) => {
   const { horizontalSpacing, verticalSpacing, showGrid, autoLayout } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -161,6 +162,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     nodeId: string;
   } | null>(null);
   const [isReorganizing, setIsReorganizing] = useState(false);
+  const rf = useReactFlow();
 
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
@@ -180,19 +182,19 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     );
 
     try {
-      const response = await fetch('https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+      const { fetchWithRetry } = await import('@/utils/http');
+      const response = await fetchWithRetry(
+        'https://officially-probable-hamster.ngrok-free.app/webhook/e7fac30b-bd9d-4a8c-a1b1-38ba4ec19c9a',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ prompt: content }),
         },
-        body: JSON.stringify({ prompt: content }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-      }
+        { retries: 2, backoffMs: 800, timeoutMs: 15000 }
+      );
 
       const result = await response.json();
       console.log('Elaborate response:', result);
@@ -236,11 +238,13 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
     const parentNode = nodes.find(n => n.id === parentNodeId);
     if (!parentNode) return;
 
-    // Create new child nodes
+    // Create new child nodes (skip duplicates)
+    const existingIds = new Set(nodes.map(n => n.id));
     const newNodes: Node[] = items.map((item: any, idx: number) => {
       const itemNumber = item.itemNumber ?? idx + 1;
       const id = `${parentNodeId}-child-${itemNumber}`;
       
+      if (existingIds.has(id)) return null as any;
       return {
         id,
         type: 'description',
@@ -255,14 +259,16 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         draggable: true,
         selectable: true,
       } as Node;
-    });
+    }).filter(Boolean as any);
 
-    // Create new edges connecting parent to children
+    // Create new edges connecting parent to children (skip duplicates) 
+    const existingEdgeIds = new Set(edges.map(e => e.id));
     const newEdges: Edge[] = items.map((item: any, idx: number) => {
       const itemNumber = item.itemNumber ?? idx + 1;
       const targetId = `${parentNodeId}-child-${itemNumber}`;
       const edgeId = `${parentNodeId}->${targetId}`;
       
+      if (existingEdgeIds.has(edgeId)) return null as any;
       return {
         id: edgeId,
         source: parentNodeId,
@@ -284,7 +290,7 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
           height: 6,
         },
       } as Edge;
-    });
+    }).filter(Boolean as any);
 
     // Add new nodes and edges to the graph
     setNodes(prevNodes => {
@@ -295,13 +301,14 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
         return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
       }
       
-      // Manual positioning for new nodes using proper spacing
-      const positionedNewNodes = newNodes.map((newNode, index) => {
-        const parentPos = parentNode.position;
-        const childSpacing = 200;
+      // Manual positioning for new nodes using proper spacing under parent
+      const positionedNewNodes = updatedNodes.slice(-newNodes.length).map((newNode, index) => {
+        const parent = updatedNodes.find(n => n.id === parentNodeId) || parentNode;
+        const parentPos = parent.position;
+        const childSpacing = 220;
         const levelSpacing = verticalSpacing || 250;
         
-        // Position children horizontally spread below parent
+        // Spread horizontally under parent
         const totalWidth = (newNodes.length - 1) * childSpacing;
         const startX = parentPos.x - totalWidth / 2;
         
@@ -317,7 +324,18 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
       return [...prevNodes, ...positionedNewNodes];
     });
 
-    setEdges(prevEdges => [...prevEdges, ...newEdges]);
+    setEdges(prevEdges => {
+      const existing = new Set(prevEdges.map(e => e.id));
+      const merged = [...prevEdges, ...newEdges.filter(e => !existing.has(e.id))];
+      return merged;
+    });
+
+    // bring new nodes into view
+    setTimeout(() => {
+      try {
+        rf.fitView({ padding: 0.2, includeHiddenNodes: false, duration: 500 });
+      } catch {}
+    }, 0);
     
     toast.success(`Added ${items.length} new nodes`);
   }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate]);
@@ -508,12 +526,17 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot }: FlowchartCanvasPr
   }, [data]);
 
   useEffect(() => {
-    // Only initialize nodes if they're empty to prevent wiping elaborated children
+    // Initialize once. Prefer a provided snapshot (exact positions) when available
     if (nodes.length === 0) {
-      setNodes(initialNodes);
-      setEdges(initialEdges);
+      if (initialSnapshot && initialSnapshot.nodes?.length) {
+        setNodes(initialSnapshot.nodes);
+        setEdges(initialSnapshot.edges || []);
+      } else {
+        setNodes(initialNodes);
+        setEdges(initialEdges);
+      }
     }
-  }, [initialNodes, initialEdges, nodes.length]);
+  }, [initialNodes, initialEdges, nodes.length, initialSnapshot]);
 
   useEffect(() => {
     if (onSnapshot) {

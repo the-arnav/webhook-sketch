@@ -44,7 +44,7 @@ const Index = () => {
       if (canvasData && canvasData.nodes && canvasData.edges) {
         console.log('Loading canvas data from state:', canvasData);
         
-        // Convert the saved canvas data back to flowchart format
+        // Keep subject and meta, but DO NOT rebuild positions; pass snapshot directly
         const convertedData = canvasData.nodes
           .filter((node: Node) => node.type === 'title' || node.type === 'description')
           .map((node: Node, index: number) => ({
@@ -64,7 +64,7 @@ const Index = () => {
           edges: canvasData.edges
         };
         
-        console.log('Canvas loaded successfully with', convertedData.length, 'items');
+        console.log('Canvas snapshot loaded with exact positions');
       }
     }
   }, [location.state]);
@@ -293,6 +293,7 @@ const Index = () => {
               data={flowchartData} 
               subject={subject}
               onSnapshot={handleSnapshot}
+              initialSnapshot={latestSnapshotRef.current}
             />
           </div>
 

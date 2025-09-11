@@ -150,57 +150,55 @@ export const JSONUploader = ({ onDataLoad, onGeneratingChange }: JSONUploaderPro
     'Photosynthesis process',
   ];
 
-  const handleSendPrompt = async () => {
-    if (!promptInput.trim()) {
-      toast.error('Please enter what you want to learn');
-      return;
-    }
-
-    setIsLoading(true);
-    onGeneratingChange?.(true);
-    
-    try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: promptInput.trim()
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Webhook response:', data);
-      
-      const { items: extractedItems, subject } = extractDataFromJSON(data);
-      console.log('Extracted items:', extractedItems);
-      console.log('Extracted subject:', subject);
-      
-      if (extractedItems.length === 0) {
-        throw new Error('No valid items found in the response. Please try a different topic.');
-      }
-      
-      // Normalize all items to our standard format
-      const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
-      console.log('Normalized items:', normalizedItems);
-      
-      onDataLoad(normalizedItems, subject || promptInput);
-      toast.success(`Successfully generated flowchart for "${subject || promptInput}" with ${normalizedItems.length} items`);
-      setPromptInput(''); // Clear the input after success
-      
-    } catch (error) {
-      console.error('Error sending prompt to webhook:', error);
-      toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate flowchart'}`);
-    } finally {
-      setIsLoading(false);
-      onGeneratingChange?.(false);
-    }
-  };
+   const handleSendPrompt = async () => {
+     if (!promptInput.trim()) {
+       toast.error('Please enter what you want to learn');
+       return;
+     }
+ 
+     setIsLoading(true);
+     onGeneratingChange?.(true);
+     
+     try {
+       const { fetchWithRetry } = await import('@/utils/http');
+       const response = await fetchWithRetry(WEBHOOK_URL, {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+           'Accept': 'application/json',
+         },
+         body: JSON.stringify({
+           prompt: promptInput.trim()
+         })
+       }, { retries: 2, backoffMs: 800, timeoutMs: 15000 });
+ 
+       const data = await response.json();
+       console.log('Webhook response:', data);
+       
+       const { items: extractedItems, subject } = extractDataFromJSON(data);
+       console.log('Extracted items:', extractedItems);
+       console.log('Extracted subject:', subject);
+       
+       if (extractedItems.length === 0) {
+         throw new Error('No valid items found in the response. Please try a different topic.');
+       }
+       
+       // Normalize all items to our standard format
+       const normalizedItems = extractedItems.map((item, index) => normalizeItem(item, index));
+       console.log('Normalized items:', normalizedItems);
+       
+       onDataLoad(normalizedItems, subject || promptInput);
+       toast.success(`Successfully generated flowchart for "${subject || promptInput}" with ${normalizedItems.length} items`);
+       setPromptInput(''); // Clear the input after success
+       
+     } catch (error) {
+       console.error('Error sending prompt to webhook:', error);
+       toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to generate flowchart'}`);
+     } finally {
+       setIsLoading(false);
+       onGeneratingChange?.(false);
+     }
+   };
 
   const surpriseMe = () => {
     const random = suggestions[Math.floor(Math.random() * suggestions.length)];
