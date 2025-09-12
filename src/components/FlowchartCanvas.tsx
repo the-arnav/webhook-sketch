@@ -12,8 +12,7 @@ import {
   addEdge,
   BackgroundVariant,
   MarkerType,
-  useReactFlow,
-  ReactFlowProvider
+  useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
