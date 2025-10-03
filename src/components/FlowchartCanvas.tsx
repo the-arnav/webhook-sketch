@@ -12,7 +12,8 @@ import {
   addEdge,
   BackgroundVariant,
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  ReactFlowProvider
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
@@ -151,7 +152,7 @@ const createMindMapLayout = (
   }));
 };
 
-export const FlowchartCanvas = ({ data, subject, onSnapshot, initialSnapshot }: FlowchartCanvasProps) => {
+const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: FlowchartCanvasProps) => {
   const { horizontalSpacing, verticalSpacing, showGrid, autoLayout } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -659,5 +660,13 @@ export const FlowchartCanvas = ({ data, subject, onSnapshot, initialSnapshot }: 
         />
       )}
     </div>
+  );
+};
+
+export const FlowchartCanvas = (props: FlowchartCanvasProps) => {
+  return (
+    <ReactFlowProvider>
+      <FlowchartCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 };
