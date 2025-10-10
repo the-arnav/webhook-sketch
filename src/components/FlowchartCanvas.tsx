@@ -237,9 +237,9 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
 
     console.log('Processing elaborate response with', items.length, 'items');
 
-    // Find parent node for positioning
-    const parentNode = nodes.find(n => n.id === parentNodeId);
-    if (!parentNode) return;
+    // Find parent node robustly (use reactflow store first to avoid stale closures)
+    const parentNode = rf.getNode(parentNodeId) || nodes.find(n => n.id === parentNodeId);
+    // Do not early-return if missing; auto-layout path doesn't require parent; manual path will fallback.
 
     // Create new child nodes (skip duplicates)
     const existingIds = new Set(nodes.map(n => n.id));
@@ -340,7 +340,7 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     }, 0);
     
     toast.success(`Added ${items.length} new nodes`);
-  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate]);
+  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate, rf]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(prevNodes => {
