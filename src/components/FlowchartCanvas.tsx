@@ -295,32 +295,31 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
 
     // Add new nodes and edges to the graph
     setNodes(prevNodes => {
-      const updatedNodes = [...prevNodes, ...newNodes];
-      
       // Apply auto-layout if enabled
       if (autoLayout) {
+        const updatedNodes = [...prevNodes, ...newNodes];
         return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
       }
       
       // Manual positioning for new nodes using proper spacing under parent
-      const positionedNewNodes = updatedNodes.slice(-newNodes.length).map((newNode, index) => {
-        const parent = updatedNodes.find(n => n.id === parentNodeId) || parentNode;
-        const parentPos = parent.position;
-        const childSpacing = 220;
-        const levelSpacing = verticalSpacing || 250;
-        
-        // Spread horizontally under parent
-        const totalWidth = (newNodes.length - 1) * childSpacing;
-        const startX = parentPos.x - totalWidth / 2;
-        
-        return {
-          ...newNode,
-          position: {
-            x: startX + (index * childSpacing),
-            y: parentPos.y + levelSpacing
-          }
-        };
-      });
+      const parent = prevNodes.find(n => n.id === parentNodeId);
+      if (!parent) return [...prevNodes, ...newNodes];
+      
+      const parentPos = parent.position;
+      const childSpacing = 220;
+      const levelSpacing = verticalSpacing || 250;
+      
+      // Spread horizontally under parent
+      const totalWidth = (newNodes.length - 1) * childSpacing;
+      const startX = parentPos.x - totalWidth / 2;
+      
+      const positionedNewNodes = newNodes.map((newNode, index) => ({
+        ...newNode,
+        position: {
+          x: startX + (index * childSpacing),
+          y: parentPos.y + levelSpacing
+        }
+      }));
       
       return [...prevNodes, ...positionedNewNodes];
     });
