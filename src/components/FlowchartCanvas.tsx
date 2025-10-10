@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { 
   ReactFlow, 
   Node, 
@@ -23,7 +23,7 @@ import { ContextMenu } from './ContextMenu';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Layers, RotateCcw, Zap, Grid3X3 } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
-import { calculateProfessionalTreeLayout, positionElaboratedChildren } from '@/utils/nodeLayout';
+import { calculateProfessionalTreeLayout } from '@/utils/nodeLayout';
 import { toast } from 'sonner';
 
 const nodeTypes = {
@@ -538,6 +538,19 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       }
     }
   }, [initialNodes, initialEdges, nodes.length, initialSnapshot]);
+
+  // Add effect to trigger fitView when nodes are loaded
+  useEffect(() => {
+    if (nodes.length > 0) {
+      setTimeout(() => {
+        try {
+          rf.fitView({ padding: 0.2, includeHiddenNodes: false, duration: 500 });
+        } catch (error) {
+          console.warn('fitView failed:', error);
+        }
+      }, 100);
+    }
+  }, [nodes.length, rf]);
 
   useEffect(() => {
     if (onSnapshot) {
