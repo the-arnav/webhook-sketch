@@ -118,7 +118,8 @@ const createMindMapLayout = (
     const childIds = children[parentId] || [];
     const elaboratedChildren = childIds.filter(childId => {
       const childNode = nodes.find(n => n.id === childId);
-      return childNode && childNode.type !== 'title' && childNode.type !== 'description';
+      // Include all non-title children (allow description-type children)
+      return childNode && childNode.type !== 'title' && childNode.type !== 'subject';
     });
 
     if (elaboratedChildren.length === 0) return;
@@ -137,9 +138,10 @@ const createMindMapLayout = (
     });
   };
 
-  // Apply elaborated children positioning to all description nodes
-  nodes.filter(n => n.type === 'description').forEach(descNode => {
-    positionElaboratedChildren(descNode.id);
+  // Apply elaborated children positioning to title and description nodes
+  const parentsForElaboration = nodes.filter(n => n.type === 'description' || n.type === 'title');
+  parentsForElaboration.forEach(parentNode => {
+    positionElaboratedChildren(parentNode.id);
   });
 
   // Apply positions to all nodes
