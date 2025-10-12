@@ -297,21 +297,19 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
 
     // Add new nodes and edges to the graph
     setNodes(prevNodes => {
-      // Apply auto-layout if enabled
-      if (autoLayout) {
-        const updatedNodes = [...prevNodes, ...newNodes];
-        return createMindMapLayout(updatedNodes, [...edges, ...newEdges], horizontalSpacing, verticalSpacing);
+      // Always use manual positioning for elaborated children to preserve existing layout
+      // Find parent node using current positions
+      const parent = prevNodes.find(n => n.id === parentNodeId);
+      if (!parent) {
+        // Fallback: position at origin if parent not found
+        return [...prevNodes, ...newNodes];
       }
       
-      // Manual positioning for new nodes using proper spacing under parent
-      const parent = prevNodes.find(n => n.id === parentNodeId);
-      if (!parent) return [...prevNodes, ...newNodes];
-      
       const parentPos = parent.position;
-      const childSpacing = 220;
-      const levelSpacing = verticalSpacing || 250;
+      const childSpacing = 250;
+      const levelSpacing = verticalSpacing || 280;
       
-      // Spread horizontally under parent
+      // Position children centered horizontally under parent
       const totalWidth = (newNodes.length - 1) * childSpacing;
       const startX = parentPos.x - totalWidth / 2;
       
