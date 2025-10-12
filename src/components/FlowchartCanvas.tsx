@@ -526,16 +526,26 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     return [...subjectToTitleEdges, ...titleToDescEdges];
   }, [data]);
 
-  const hasInitialized = useRef(false);
+  const initializedDataRef = useRef<string>('');
 
   useEffect(() => {
-    // Initialize once. Prefer a provided snapshot (exact positions) when available
-    if (!hasInitialized.current && nodes.length === 0) {
-      hasInitialized.current = true;
+    // Create a unique identifier for the current data
+    const dataId = initialSnapshot 
+      ? `snapshot-${initialSnapshot.nodes.length}-${JSON.stringify(initialSnapshot.nodes[0]?.id || '')}` 
+      : `data-${initialNodes.length}-${JSON.stringify(initialNodes[0]?.id || '')}`;
+    
+    // Only initialize if we have new data or it's the first load
+    const isNewData = dataId !== initializedDataRef.current;
+    const shouldInitialize = (nodes.length === 0 || isNewData) && (initialNodes.length > 0 || initialSnapshot?.nodes?.length);
+    
+    if (shouldInitialize) {
+      console.log('Initializing canvas with', isNewData ? 'new' : 'initial', 'data');
+      initializedDataRef.current = dataId;
+      
       if (initialSnapshot && initialSnapshot.nodes?.length) {
         setNodes(initialSnapshot.nodes);
         setEdges(initialSnapshot.edges || []);
-      } else {
+      } else if (initialNodes.length > 0) {
         setNodes(initialNodes);
         setEdges(initialEdges);
       }
