@@ -166,10 +166,11 @@ export default function CanvasList() {
                 <CardContent className="p-4">
                   {/* Canvas Preview */}
                   <div 
-                    className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg mb-3 flex items-center justify-center cursor-pointer"
+                    className="aspect-video bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 rounded-lg mb-3 flex items-center justify-center cursor-pointer relative overflow-hidden"
                     onClick={() => openCanvas(c.id)}
                   >
-                    <FileText className="w-8 h-8 text-primary/60 group-hover:scale-110 transition-transform" />
+                    <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(white,transparent_85%)]" />
+                    <FileText className="w-8 h-8 text-primary/60 group-hover:scale-110 transition-transform relative z-10" />
                   </div>
 
                   {/* Title */}

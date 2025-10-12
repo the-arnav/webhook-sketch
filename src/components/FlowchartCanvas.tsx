@@ -55,9 +55,9 @@ const createMindMapLayout = (
 
   const positionedNodes: Record<string, { x: number; y: number }> = {};
   const config = {
-    levelSpacing: customVerticalSpacing || 280,
-    siblingSpacing: customHorizontalSpacing || 450,
-    childSpacing: 250 // Spacing between elaborated child nodes
+    levelSpacing: customVerticalSpacing || 320,
+    siblingSpacing: customHorizontalSpacing || 500,
+    childSpacing: 280 // Spacing between elaborated child nodes
   };
 
   // Build parent-child relationships from edges
@@ -306,8 +306,8 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       }
       
       const parentPos = parent.position;
-      const childSpacing = 250;
-      const levelSpacing = verticalSpacing || 280;
+      const childSpacing = 280;
+      const levelSpacing = verticalSpacing || 320;
       
       // Position children centered horizontally under parent
       const totalWidth = (newNodes.length - 1) * childSpacing;
@@ -318,7 +318,8 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         position: {
           x: startX + (index * childSpacing),
           y: parentPos.y + levelSpacing
-        }
+        },
+        className: 'animate-slide-in-up'
       }));
       
       return [...prevNodes, ...positionedNewNodes];
@@ -525,9 +526,12 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     return [...subjectToTitleEdges, ...titleToDescEdges];
   }, [data]);
 
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
     // Initialize once. Prefer a provided snapshot (exact positions) when available
-    if (nodes.length === 0) {
+    if (!hasInitialized.current && nodes.length === 0) {
+      hasInitialized.current = true;
       if (initialSnapshot && initialSnapshot.nodes?.length) {
         setNodes(initialSnapshot.nodes);
         setEdges(initialSnapshot.edges || []);
@@ -601,9 +605,11 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         fitViewOptions={{
           padding: 0.2,
           includeHiddenNodes: false,
-          maxZoom: 1.2,
-          minZoom: 0.1,
+          maxZoom: 3,
+          minZoom: 0.05,
         }}
+        minZoom={0.05}
+        maxZoom={3}
         className="bg-canvas-bg"
       >
         <Controls 
