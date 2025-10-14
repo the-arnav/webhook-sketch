@@ -9,10 +9,12 @@ interface TitleNodeData {
   itemNumber: number;
   onElaborate?: (nodeId: string, content: string) => void;
   isLoading?: boolean;
+  customColor?: string;
 }
 
 export const TitleNode = memo((props: NodeProps) => {
   const data = props.data as unknown as TitleNodeData;
+  const customColor = data.customColor;
 
   const handleElaborate = () => {
     if (data.onElaborate) {
@@ -21,7 +23,13 @@ export const TitleNode = memo((props: NodeProps) => {
   };
 
   return (
-    <div className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale">
+    <div 
+      className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale"
+      style={customColor ? { 
+        background: `linear-gradient(135deg, ${customColor}30 0%, ${customColor}20 100%)`,
+        borderColor: `${customColor}80`
+      } : undefined}
+    >
       {/* Top handle for receiving connections from subject */}
       <Handle 
         type="target" 

@@ -164,6 +164,8 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     y: number;
     nodeId: string;
   } | null>(null);
+  const [editingNode, setEditingNode] = useState<{ id: string; field: 'title' | 'description' | 'subject' } | null>(null);
+  const [editValue, setEditValue] = useState('');
   const [isReorganizing, setIsReorganizing] = useState(false);
   const rf = useReactFlow();
 
@@ -223,6 +225,40 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       );
     }
   }, [loadingNodes]);
+
+  const handleEditNode = useCallback((nodeId: string, field: 'title' | 'description' | 'subject', currentValue: string) => {
+    setEditingNode({ id: nodeId, field });
+    setEditValue(currentValue);
+    setContextMenu(null);
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!editingNode) return;
+    
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === editingNode.id 
+          ? { ...node, data: { ...node.data, [editingNode.field]: editValue } }
+          : node
+      )
+    );
+    
+    setEditingNode(null);
+    setEditValue('');
+    toast.success('Node updated');
+  }, [editingNode, editValue, setNodes]);
+
+  const handleChangeNodeColor = useCallback((nodeId: string, color: string) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, data: { ...node.data, customColor: color } }
+          : node
+      )
+    );
+    setContextMenu(null);
+    toast.success('Color changed');
+  }, [setNodes]);
 
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
@@ -297,17 +333,16 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
 
     // Add new nodes and edges to the graph
     setNodes(prevNodes => {
-      // Always use manual positioning for elaborated children to preserve existing layout
-      // Find parent node using current positions
-      const parent = prevNodes.find(n => n.id === parentNodeId);
+      // Find parent node using reactflow first (most current state)
+      const parent = rf.getNode(parentNodeId) || prevNodes.find(n => n.id === parentNodeId);
       if (!parent) {
         // Fallback: position at origin if parent not found
         return [...prevNodes, ...newNodes];
       }
       
       const parentPos = parent.position;
-      const childSpacing = 280;
-      const levelSpacing = verticalSpacing || 320;
+      const childSpacing = 300; // Increased spacing
+      const levelSpacing = 350; // Increased vertical spacing
       
       // Position children centered horizontally under parent
       const totalWidth = (newNodes.length - 1) * childSpacing;
@@ -539,11 +574,18 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     const shouldInitialize = (nodes.length === 0 || isNewData) && (initialNodes.length > 0 || initialSnapshot?.nodes?.length);
     
     if (shouldInitialize) {
-      console.log('Initializing canvas with', isNewData ? 'new' : 'initial', 'data');
       initializedDataRef.current = dataId;
       
       if (initialSnapshot && initialSnapshot.nodes?.length) {
-        setNodes(initialSnapshot.nodes);
+        // Restore exact snapshot with all properties preserved
+        const restoredNodes = initialSnapshot.nodes.map(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            onElaborate: handleElaborate, // Re-attach callbacks
+          }
+        }));
+        setNodes(restoredNodes);
         setEdges(initialSnapshot.edges || []);
       } else if (initialNodes.length > 0) {
         setNodes(initialNodes);
@@ -662,30 +704,41 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          nodeId={contextMenu.nodeId}
+          nodes={nodes}
           onClose={() => setContextMenu(null)}
           onDelete={() => handleDeleteNode(contextMenu.nodeId)}
-          onEdit={() => {
-            // TODO: Implement edit functionality
-            setContextMenu(null);
-            toast.info('Edit functionality coming soon');
-          }}
+          onEdit={handleEditNode}
           onDuplicate={() => handleNodeDuplicate(contextMenu.nodeId)}
           onMove={() => {
-            // TODO: Implement move functionality
             setContextMenu(null);
             toast.info('Move functionality coming soon');
           }}
           onToggleLock={() => {
-            // TODO: Implement lock functionality
             setContextMenu(null);
             toast.info('Lock functionality coming soon');
           }}
-          onChangeColor={() => {
-            // TODO: Implement color change functionality
-            setContextMenu(null);
-            toast.info('Color change functionality coming soon');
-          }}
+          onChangeColor={handleChangeNodeColor}
         />
+      )}
+
+      {/* Edit Dialog */}
+      {editingNode && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setEditingNode(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 glass-panel" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Edit {editingNode.field}</h3>
+            <textarea
+              className="w-full min-h-[100px] p-3 bg-background border border-border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4">
+              <Button onClick={handleSaveEdit} className="flex-1">Save</Button>
+              <Button variant="outline" onClick={() => setEditingNode(null)} className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

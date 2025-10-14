@@ -3,10 +3,17 @@ import { Handle, Position, NodeProps } from '@xyflow/react';
 import { BookOpen } from 'lucide-react';
 
 export const SubjectNode = memo((props: NodeProps) => {
-  const data = props.data as unknown as { subject: string };
+  const data = props.data as unknown as { subject: string; customColor?: string };
+  const customColor = data.customColor;
 
   return (
-    <div className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in">
+    <div 
+      className="canvas-node-subject rounded-xl p-8 min-w-[320px] max-w-[400px] animate-scale-in"
+      style={customColor ? { 
+        background: `linear-gradient(135deg, ${customColor} 0%, ${customColor}dd 100%)`,
+        borderColor: customColor 
+      } : undefined}
+    >
       {/* Bottom handle for connecting to titles */}
       <Handle 
         type="source" 
