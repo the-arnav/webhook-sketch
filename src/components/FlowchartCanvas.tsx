@@ -344,12 +344,15 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       const childSpacing = 300; // Horizontal spacing between siblings
       const levelSpacing = 350; // Vertical spacing from parent
       
-      // Position children in a vertical stack below parent, aligned with parent's x
+      // Position children centered horizontally under parent
+      const totalWidth = (newNodes.length - 1) * childSpacing;
+      const startX = parentPos.x - totalWidth / 2;
+      
       const positionedNewNodes = newNodes.map((newNode, index) => ({
         ...newNode,
         position: {
-          x: parentPos.x, // Align with parent's x position
-          y: parentPos.y + levelSpacing + (index * childSpacing) // Stack vertically
+          x: startX + (index * childSpacing),
+          y: parentPos.y + levelSpacing
         },
         className: 'animate-slide-in-up'
       }));
