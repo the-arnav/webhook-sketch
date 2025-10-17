@@ -335,24 +335,59 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         // Fallback: position at origin if parent not found
         return [...prevNodes, ...newNodes];
       }
-      
-      const parentPos = parent.position;
-      const childSpacing = 300; // Horizontal spacing between siblings
-      const levelSpacing = 350; // Vertical spacing from parent
-      
-      // Position children centered horizontally under parent
-      const totalWidth = (newNodes.length - 1) * childSpacing;
-      const startX = parentPos.x - totalWidth / 2;
-      
-      const positionedNewNodes = newNodes.map((newNode, index) => ({
-        ...newNode,
-        position: {
-          x: startX + (index * childSpacing),
-          y: parentPos.y + levelSpacing
-        }
-      }));
-      
-      return [...prevNodes, ...positionedNewNodes];
+
+      // Build full children list (existing + new) for this parent
+      const combinedEdges = [...edges, ...newEdges];
+      const childIds = combinedEdges
+        .filter(e => e.source === parentNodeId)
+        .map(e => e.target);
+
+      // Map to actual node objects from current and new nodes
+      const nodeMap = new Map<string, Node>();
+      prevNodes.forEach(n => nodeMap.set(n.id, n));
+      newNodes.forEach(n => nodeMap.set(n.id, n));
+      const allChildren = childIds
+        .map(id => nodeMap.get(id))
+        .filter(Boolean) as Node[];
+
+      // Stable ordering by itemNumber then id
+      allChildren.sort((a, b) => {
+        const aNum = Number((a.data as any)?.itemNumber) || 0;
+        const bNum = Number((b.data as any)?.itemNumber) || 0;
+        if (aNum !== bNum) return aNum - bNum;
+        return a.id.localeCompare(b.id);
+      });
+
+      const childSpacing = Math.max(160, horizontalSpacing || 280); // horizontal gap between siblings
+      const levelSpacing = Math.max(160, verticalSpacing || 320);   // vertical gap below parent
+
+      // Compute centered row under parent
+      const totalWidth = (allChildren.length - 1) * childSpacing;
+      const startX = parent.position.x - totalWidth / 2;
+      const rowY = parent.position.y + levelSpacing;
+
+      // Reposition existing children already in prevNodes
+      const updatedPrevNodes = prevNodes.map(n => {
+        const idx = allChildren.findIndex(c => c.id === n.id);
+        if (idx === -1) return n;
+        return {
+          ...n,
+          position: { x: startX + idx * childSpacing, y: rowY }
+        };
+      });
+
+      // Append newly created children with correct positions
+      const appendedNewNodes = newNodes
+        .filter(n => !prevNodes.some(p => p.id === n.id))
+        .map(n => {
+          const idx = allChildren.findIndex(c => c.id === n.id);
+          return {
+            ...n,
+            position: { x: startX + idx * childSpacing, y: rowY }
+          };
+        });
+
+      return [...updatedPrevNodes, ...appendedNewNodes];
     });
 
     setEdges(prevEdges => {
