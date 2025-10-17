@@ -314,20 +314,16 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         sourceHandle: 'bottom',
         target: targetId,
         targetHandle: 'top',
-        type: 'straight',
-        animated: false,
-        style: { 
-          stroke: 'hsl(var(--primary))', 
-          strokeWidth: 2,
-          opacity: 0.7,
-          filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.3))'
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'hsl(var(--primary))',
-          width: 6,
-          height: 6,
-        },
+      type: 'default',
+      animated: false,
+      style: { 
+        stroke: 'hsl(var(--muted-foreground))', 
+        strokeWidth: 2
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: 'hsl(var(--muted-foreground))'
+      },
       } as Edge;
     }).filter(Boolean as any);
 
@@ -353,8 +349,7 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         position: {
           x: startX + (index * childSpacing),
           y: parentPos.y + levelSpacing
-        },
-        className: 'animate-slide-in-up'
+        }
       }));
       
       return [...prevNodes, ...positionedNewNodes];
@@ -521,18 +516,14 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       sourceHandle: 'bottom',
       target: `title-${item.itemNumber}`,
       targetHandle: 'top',
-      type: 'straight',
-      animated: true,
+      type: 'default',
       style: { 
-        stroke: 'var(--edge-primary)', 
-        strokeWidth: 3,
-        filter: 'var(--edge-glow)'
+        stroke: 'hsl(var(--muted-foreground))', 
+        strokeWidth: 2
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: 'var(--edge-primary)',
-        width: 8,
-        height: 8,
+        color: 'hsl(var(--muted-foreground))'
       },
     }));
 
@@ -542,19 +533,14 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       sourceHandle: 'bottom',
       target: `desc-${item.itemNumber}`,
       targetHandle: 'top',
-      type: 'straight',
-      animated: true,
+      type: 'default',
       style: { 
-        stroke: 'var(--edge-secondary)', 
-        strokeWidth: 2,
-        opacity: 0.8,
-        filter: 'var(--edge-glow)'
+        stroke: 'hsl(var(--muted-foreground))', 
+        strokeWidth: 2
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: 'var(--edge-secondary)',
-        width: 6,
-        height: 6,
+        color: 'hsl(var(--muted-foreground))'
       },
     }));
 
@@ -691,11 +677,10 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
           }}
         />
         <Background 
-          variant={BackgroundVariant.Dots}
-          gap={24}
-          size={3}
-          color="hsl(var(--primary))"
-          style={{ opacity: showGrid ? 0.6 : 0.3 }}
+          variant={BackgroundVariant.Lines}
+          gap={20}
+          color="hsl(var(--border))"
+          style={{ opacity: 0.3 }}
         />
       </ReactFlow>
 

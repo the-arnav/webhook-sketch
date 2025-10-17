@@ -24,52 +24,48 @@ export const TitleNode = memo((props: NodeProps) => {
 
   return (
     <div 
-      className="canvas-node-title rounded-xl p-6 min-w-[280px] max-w-[320px] animate-fade-in hover-scale"
+      className="bg-card border border-border rounded-lg p-4 min-w-[240px] max-w-[280px] shadow-sm"
       style={customColor ? { 
-        background: `linear-gradient(135deg, ${customColor}30 0%, ${customColor}20 100%)`,
-        borderColor: `${customColor}80`
+        backgroundColor: customColor,
+        borderColor: customColor
       } : undefined}
     >
-      {/* Top handle for receiving connections from subject */}
       <Handle 
         type="target" 
         position={Position.Top} 
         id="top"
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
+        className="!bg-muted-foreground !border-border !w-3 !h-3"
       />
       
-      <div className="space-y-4 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-purple-400/20 rounded-full flex items-center justify-center text-sm font-bold text-purple-300 shadow-sm">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-semibold text-muted-foreground">
             {data.itemNumber}
           </div>
-          <div className="px-3 py-1.5 bg-blue-400/20 rounded-full text-xs font-medium text-blue-300 backdrop-blur-sm border border-blue-400/30">
-            📝 Topic
-          </div>
+          <span className="text-xs text-muted-foreground">Topic</span>
         </div>
         
-        <h3 className="text-xl font-bold text-white leading-tight tracking-wide drop-shadow-md">
+        <h3 className="text-base font-semibold text-foreground leading-snug">
           {data.title}
         </h3>
 
         <Button
           onClick={handleElaborate}
           size="sm"
-          variant="ghost"
+          variant="outline"
           disabled={data.isLoading}
-          className="w-full text-xs text-purple-300 hover:text-white hover:bg-purple-500/20 border border-purple-400/30 disabled:opacity-50"
+          className="w-full text-xs"
         >
           <ChevronDown className="w-3 h-3 mr-1" />
-          {data.isLoading ? 'Loading...' : 'Elaborate More'}
+          {data.isLoading ? 'Loading...' : 'Elaborate'}
         </Button>
       </div>
       
-      {/* Bottom handle for connecting to descriptions */}
       <Handle 
         type="source" 
         position={Position.Bottom} 
         id="bottom"
-        className="!bg-purple-400 !border-purple-300 !w-3 !h-3 !shadow-md"
+        className="!bg-muted-foreground !border-border !w-3 !h-3"
       />
     </div>
   );
