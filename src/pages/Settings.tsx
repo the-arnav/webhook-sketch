@@ -163,14 +163,14 @@ export default function Settings() {
                     <Slider
                       value={[verticalSpacing]}
                       onValueChange={(value) => setVerticalSpacing(value[0])}
-                      min={150}
-                      max={400}
-                      step={25}
+                      min={200}
+                      max={600}
+                      step={50}
                       className="w-full"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-2">
                       <span>Tight</span>
-                      <span>Spaced</span>
+                      <span>Spacious</span>
                     </div>
                   </div>
                 </div>
@@ -262,6 +262,7 @@ export default function Settings() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="solid">Solid Dark</SelectItem>
+                        <SelectItem value="amoled">AMOLED Black</SelectItem>
                         <SelectItem value="gradient">Gradient</SelectItem>
                         <SelectItem value="dots">Dotted Pattern</SelectItem>
                       </SelectContent>

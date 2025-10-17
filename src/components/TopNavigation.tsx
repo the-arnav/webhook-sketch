@@ -20,7 +20,7 @@ export const TopNavigation = () => {
   ];
 
   return (
-    <nav className="flex items-center gap-2">
+    <nav className="flex items-center gap-3 bg-card/50 backdrop-blur-xl border border-border rounded-full px-2 py-1.5">
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -28,10 +28,10 @@ export const TopNavigation = () => {
             <Button
               variant={isActive(item.path) ? 'default' : 'ghost'}
               size="sm"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 rounded-full transition-all hover:scale-105"
             >
               <Icon className="w-4 h-4" />
-              {item.label}
+              <span className="hidden sm:inline">{item.label}</span>
             </Button>
           </Link>
         );

@@ -358,8 +358,8 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         return a.id.localeCompare(b.id);
       });
 
-      const childSpacing = Math.max(160, horizontalSpacing || 280); // horizontal gap between siblings
-      const levelSpacing = Math.max(160, verticalSpacing || 320);   // vertical gap below parent
+      const childSpacing = Math.max(200, horizontalSpacing || 350); // horizontal gap between siblings
+      const levelSpacing = Math.max(250, verticalSpacing || 400);   // vertical gap below parent
 
       // Compute centered row under parent
       const totalWidth = (allChildren.length - 1) * childSpacing;
@@ -437,35 +437,25 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     setIsReorganizing(true);
     
     setTimeout(() => {
-      const layoutedNodes = createMindMapLayout(nodes, edges, horizontalSpacing, verticalSpacing);
-      setNodes(layoutedNodes);
-      setIsReorganizing(false);
-      toast.success('Canvas reorganized');
-    }, 100);
-  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
-
-  const handleTidyUp = useCallback(() => {
-    setIsReorganizing(true);
-    
-    setTimeout(() => {
       const layoutedNodes = calculateProfessionalTreeLayout(
         nodes,
         edges,
         {
-          nodeWidth: 300,
-          nodeHeight: 150,
-          levelSpacing: verticalSpacing,
-          siblingSpacing: horizontalSpacing,
-          childSpacing: 160,
+          nodeWidth: 350,
+          nodeHeight: 180,
+          levelSpacing: Math.max(250, verticalSpacing || 400),
+          siblingSpacing: Math.max(200, horizontalSpacing || 350),
+          childSpacing: 200,
           centerAlignment: true,
           collisionDetection: true
         }
       );
       setNodes(layoutedNodes);
       setIsReorganizing(false);
-      toast.success('Canvas tidied up');
+      toast.success('Canvas reorganized with spacious layout');
     }, 100);
   }, [nodes, edges, horizontalSpacing, verticalSpacing]);
+
 
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
     event.preventDefault();
@@ -653,17 +643,6 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
           <RefreshCw className={`w-4 h-4 ${isReorganizing ? 'animate-spin' : ''}`} />
           {isReorganizing ? 'Organizing...' : 'Reorganize'}
         </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleTidyUp}
-          disabled={isReorganizing}
-          className="glass-panel border-border hover:bg-accent/50"
-        >
-          <Zap className={`w-4 h-4 ${isReorganizing ? 'animate-pulse' : ''}`} />
-          Tidy Up
-        </Button>
       </div>
 
       <ReactFlow
@@ -674,6 +653,12 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         onConnect={onConnect}
         onNodeContextMenu={handleNodeContextMenu}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={{ 
+          type: 'default',
+          style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--muted-foreground))' }
+        }}
+        snapToGrid={false}
         fitView
         fitViewOptions={{
           padding: 0.2,

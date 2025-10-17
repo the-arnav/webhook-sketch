@@ -37,7 +37,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     parseInt(localStorage.getItem('horizontalSpacing') || '350')
   );
   const [verticalSpacing, setVerticalSpacing] = useState(() => 
-    parseInt(localStorage.getItem('verticalSpacing') || '200')
+    parseInt(localStorage.getItem('verticalSpacing') || '400')
   );
   const [nodeOpacity, setNodeOpacity] = useState(() => 
     parseInt(localStorage.getItem('nodeOpacity') || '90')
@@ -139,6 +139,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     switch (bg) {
       case 'solid':
         root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
+        break;
+      case 'amoled':
+        root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
+        root.style.setProperty('--canvas-overlay', 'none');
         break;
       case 'gradient':
         root.style.setProperty('--canvas-bg', 'radial-gradient(circle at 20% 20%, hsl(270 80% 25% / 0.15), transparent 35%), radial-gradient(circle at 80% 30%, hsl(260 70% 30% / 0.15), transparent 40%), linear-gradient(120deg, hsl(220 15% 8%), hsl(220 20% 10%))');

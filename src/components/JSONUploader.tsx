@@ -218,35 +218,36 @@ export const JSONUploader = ({ onDataLoad, onGeneratingChange }: JSONUploaderPro
       initial={{ y: 40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-      className="glass-panel rounded-2xl p-3 md:p-4 shadow-xl backdrop-blur-xl bg-background/60"
+      className="glass-panel rounded-3xl p-4 md:p-6 shadow-2xl backdrop-blur-2xl bg-card/80 border-2 border-border/50"
     >
-      <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-          <Brain className="w-4 h-4" />
-          <span>Ask anything...</span>
+      <div className="flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-2.5 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+          <Brain className="w-5 h-5 text-primary" />
+          <span className="text-sm font-medium text-primary">AI Canvas</span>
         </div>
         <Input
-          placeholder="What would you like to learn?"
+          placeholder="What would you like to learn today?"
           value={promptInput}
           onChange={(e) => setPromptInput(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={isLoading}
-          className="flex-1 border-0 bg-white/5 focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="flex-1 border-border bg-background/80 h-12 px-4 text-base focus-visible:ring-2 focus-visible:ring-primary/50 rounded-xl"
         />
         <Button 
           onClick={handleSendPrompt} 
           disabled={isLoading || !promptInput.trim()}
-          className="gap-1"
+          className="gap-2 h-12 px-6 rounded-xl"
+          size="lg"
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              Generating
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="hidden sm:inline">Generating...</span>
             </>
           ) : (
             <>
-              <Send className="w-4 h-4" />
-              <span className="hidden sm:inline">Generate</span>
+              <Send className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">Generate</span>
             </>
           )}
         </Button>
@@ -254,18 +255,19 @@ export const JSONUploader = ({ onDataLoad, onGeneratingChange }: JSONUploaderPro
           variant="outline" 
           onClick={surpriseMe}
           disabled={isLoading}
-          className="gap-1"
+          className="gap-2 h-12 px-5 rounded-xl border-2"
+          size="lg"
         >
-          🎲 <span className="hidden sm:inline">Surprise Me</span>
+          🎲 <span className="hidden sm:inline font-medium">Surprise</span>
         </Button>
       </div>
-      <div className="flex flex-wrap gap-2 mt-2 text-xs">
+      <div className="flex flex-wrap gap-2 mt-4">
         {suggestions.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setPromptInput(s)}
-            className="px-2 py-1 rounded-full bg-white/5 hover:bg-white/10 transition"
+            className="px-4 py-2 rounded-lg bg-muted/50 hover:bg-muted border border-border/50 hover:border-primary/50 transition-all text-sm font-medium hover:scale-105"
           >
             {s}
           </button>
