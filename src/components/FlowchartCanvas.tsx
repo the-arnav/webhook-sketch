@@ -358,21 +358,28 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         return a.id.localeCompare(b.id);
       });
 
-      const childSpacing = Math.max(200, horizontalSpacing || 350); // horizontal gap between siblings
-      const levelSpacing = Math.max(250, verticalSpacing || 400);   // vertical gap below parent
+      const childSpacing = Math.max(300, horizontalSpacing || 350); // horizontal gap between siblings
+      const levelSpacing = Math.max(300, verticalSpacing || 400);   // vertical gap below parent
 
       // Compute centered row under parent
       const totalWidth = (allChildren.length - 1) * childSpacing;
       const startX = parent.position.x - totalWidth / 2;
       const rowY = parent.position.y + levelSpacing;
 
-      // Reposition existing children already in prevNodes
+      // Reposition existing children already in prevNodes with rounded positions
       const updatedPrevNodes = prevNodes.map(n => {
         const idx = allChildren.findIndex(c => c.id === n.id);
         if (idx === -1) return n;
+        
+        const targetX = startX + idx * childSpacing;
+        const targetY = rowY;
+        
         return {
           ...n,
-          position: { x: startX + idx * childSpacing, y: rowY }
+          position: { 
+            x: Math.round(targetX), 
+            y: Math.round(targetY) 
+          }
         };
       });
 
@@ -381,9 +388,15 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         .filter(n => !prevNodes.some(p => p.id === n.id))
         .map(n => {
           const idx = allChildren.findIndex(c => c.id === n.id);
+          const targetX = startX + idx * childSpacing;
+          const targetY = rowY;
+          
           return {
             ...n,
-            position: { x: startX + idx * childSpacing, y: rowY }
+            position: { 
+              x: Math.round(targetX), 
+              y: Math.round(targetY) 
+            }
           };
         });
 
@@ -630,7 +643,16 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
   );
 
   return (
-    <div className="relative w-full h-full bg-canvas-bg">
+    <div className="relative w-full h-full" style={{ 
+      background: 'var(--canvas-bg)',
+      backgroundSize: 'var(--canvas-bg-size, 100%)'
+    }}>
+      {/* Canvas Overlay */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'var(--canvas-overlay, transparent)',
+        backgroundSize: 'var(--canvas-bg-size, 100%)'
+      }} />
+      
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
         <Button
@@ -654,9 +676,9 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         onNodeContextMenu={handleNodeContextMenu}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={{ 
-          type: 'default',
-          style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--muted-foreground))' }
+          type: 'smoothstep',
+          style: { stroke: 'hsl(var(--primary))', strokeWidth: 2.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' }
         }}
         snapToGrid={false}
         fitView
@@ -668,7 +690,9 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         }}
         minZoom={0.05}
         maxZoom={3}
-        className="bg-canvas-bg"
+        style={{ 
+          background: 'transparent'
+        }}
       >
         <Controls 
           className="react-flow__controls premium-controls"
@@ -700,7 +724,7 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
           variant={BackgroundVariant.Lines}
           gap={20}
           color="hsl(var(--border))"
-          style={{ opacity: 0.3 }}
+          style={{ opacity: showGrid ? 0.3 : 0 }}
         />
       </ReactFlow>
 

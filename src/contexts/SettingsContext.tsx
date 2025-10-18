@@ -136,21 +136,32 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateCanvasBackground = (bg: string) => {
     const root = document.documentElement;
+    
+    // Reset canvas-overlay first
+    root.style.setProperty('--canvas-overlay', 'transparent');
+    
     switch (bg) {
       case 'solid':
-        root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
+        root.style.setProperty('--canvas-bg', 'hsl(220 15% 8%)');
         break;
       case 'amoled':
         root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
-        root.style.setProperty('--canvas-overlay', 'none');
         break;
       case 'gradient':
-        root.style.setProperty('--canvas-bg', 'radial-gradient(circle at 20% 20%, hsl(270 80% 25% / 0.15), transparent 35%), radial-gradient(circle at 80% 30%, hsl(260 70% 30% / 0.15), transparent 40%), linear-gradient(120deg, hsl(220 15% 8%), hsl(220 20% 10%))');
+        root.style.setProperty('--canvas-bg', 'linear-gradient(120deg, hsl(220 15% 8%), hsl(220 20% 10%))');
+        root.style.setProperty('--canvas-overlay', 'radial-gradient(circle at 20% 20%, hsl(270 80% 25% / 0.15), transparent 35%), radial-gradient(circle at 80% 30%, hsl(260 70% 30% / 0.15), transparent 40%)');
         break;
       case 'dots':
-        root.style.setProperty('--canvas-bg', 'radial-gradient(circle at 1px 1px, hsl(270 50% 30% / 0.3) 1px, transparent 0)');
+        root.style.setProperty('--canvas-bg', 'hsl(0 0% 0%)');
+        root.style.setProperty('--canvas-overlay', 'radial-gradient(circle at 1px 1px, hsl(270 50% 30% / 0.3) 1px, transparent 0)');
         root.style.setProperty('--canvas-bg-size', '20px 20px');
         break;
+    }
+    
+    // Force React Flow background update by triggering a reflow
+    const reactFlowBg = document.querySelector('.react-flow__background');
+    if (reactFlowBg) {
+      (reactFlowBg as HTMLElement).style.background = root.style.getPropertyValue('--canvas-bg');
     }
   };
 

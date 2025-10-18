@@ -1,4 +1,3 @@
-
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Button } from '@/components/ui/button';
@@ -24,23 +23,26 @@ export const DescriptionNode = memo((props: NodeProps) => {
 
   return (
     <div 
-      className="bg-card border border-border rounded-lg p-4 min-w-[220px] max-w-[260px] shadow-sm"
-      style={customColor ? { 
-        backgroundColor: customColor,
-        borderColor: customColor
-      } : undefined}
+      className="bg-card/70 backdrop-blur-sm border border-muted-foreground/30 rounded-md p-3 min-w-[200px] max-w-[240px] shadow transition-all hover:shadow-md hover:border-muted-foreground/50"
+      style={{
+        fontFamily: "'Comic Neue', 'Comic Sans MS', cursive",
+        ...(customColor ? { 
+          backgroundColor: customColor,
+          borderColor: customColor
+        } : {})
+      }}
     >
       <Handle 
         type="target" 
         position={Position.Top} 
         id="top"
-        className="!bg-muted-foreground !border-border !w-3 !h-3"
+        className="!bg-muted-foreground/80 !border-muted-foreground !w-2 !h-2 !rounded-full transition-all hover:!w-3 hover:!h-3"
       />
       
-      <div className="space-y-3">
-        <span className="text-xs text-muted-foreground">Description</span>
+      <div className="space-y-2.5">
+        <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide">Description</span>
         
-        <p className="text-sm text-foreground leading-relaxed">
+        <p className="text-xs text-foreground/90 leading-relaxed">
           {data.description}
         </p>
 
@@ -49,7 +51,7 @@ export const DescriptionNode = memo((props: NodeProps) => {
           size="sm"
           variant="outline"
           disabled={data.isLoading}
-          className="w-full text-xs"
+          className="w-full text-[11px] h-7 hover:bg-primary/20"
         >
           <ChevronDown className="w-3 h-3 mr-1" />
           {data.isLoading ? 'Loading...' : 'Elaborate'}
@@ -60,7 +62,7 @@ export const DescriptionNode = memo((props: NodeProps) => {
         type="source" 
         position={Position.Bottom} 
         id="bottom"
-        className="!bg-muted-foreground !border-border !w-3 !h-3"
+        className="!bg-muted-foreground/80 !border-muted-foreground !w-2 !h-2 !rounded-full transition-all hover:!w-3 hover:!h-3"
       />
     </div>
   );

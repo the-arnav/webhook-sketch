@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { BookOpen } from 'lucide-react';
 
 export const SubjectNode = memo((props: NodeProps) => {
   const data = props.data as unknown as { subject: string; customColor?: string };
@@ -8,22 +7,24 @@ export const SubjectNode = memo((props: NodeProps) => {
 
   return (
     <div 
-      className="bg-card border border-border rounded-lg p-6 min-w-[280px] max-w-[350px] shadow-sm"
-      style={customColor ? { 
-        backgroundColor: customColor,
-        borderColor: customColor 
-      } : undefined}
+      className="bg-card/90 backdrop-blur-sm border-2 border-primary/40 rounded-xl p-5 min-w-[240px] max-w-[320px] shadow-lg transition-all hover:shadow-xl hover:border-primary/60"
+      style={{
+        fontFamily: "'Comic Neue', 'Comic Sans MS', cursive",
+        ...(customColor ? { 
+          backgroundColor: customColor,
+          borderColor: customColor 
+        } : {})
+      }}
     >
       <Handle 
         type="source" 
         position={Position.Bottom} 
         id="bottom"
-        className="!bg-muted-foreground !border-border !w-3 !h-3"
+        className="!bg-primary/80 !border-primary !w-3 !h-3 !rounded-full transition-all hover:!w-4 hover:!h-4"
       />
       
-      <div className="text-center space-y-3">
-        <BookOpen className="w-6 h-6 text-muted-foreground mx-auto" />
-        <h1 className="text-xl font-semibold text-foreground">
+      <div className="text-center">
+        <h1 className="text-lg font-bold text-foreground tracking-wide">
           {data.subject}
         </h1>
       </div>

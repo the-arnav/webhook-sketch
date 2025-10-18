@@ -138,9 +138,20 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     background: var(--canvas-bg);
-    background-image: var(--canvas-overlay);
+    background-size: var(--canvas-bg-size, 100%);
     min-height: 100vh;
     overflow-x: hidden;
+    position: relative;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: var(--canvas-overlay, transparent);
+    background-size: var(--canvas-bg-size, 100%);
+    pointer-events: none;
+    z-index: 0;
   }
 }
 
@@ -357,7 +368,17 @@ All colors MUST be HSL.
 }
 
 .react-flow__background {
-  background: var(--canvas-bg);
+  background: var(--canvas-bg) !important;
+  background-size: var(--canvas-bg-size, 100%) !important;
+}
+
+.react-flow__background::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--canvas-overlay, transparent);
+  background-size: var(--canvas-bg-size, 100%);
+  pointer-events: none;
 }
 
 .react-flow__background svg {
