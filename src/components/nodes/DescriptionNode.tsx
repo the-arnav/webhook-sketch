@@ -14,6 +14,7 @@ interface DescriptionNodeData {
 export const DescriptionNode = memo((props: NodeProps) => {
   const data = props.data as unknown as DescriptionNodeData;
   const customColor = data.customColor;
+  const isSelected = props.selected;
 
   const handleElaborate = () => {
     if (data.onElaborate) {
@@ -23,7 +24,11 @@ export const DescriptionNode = memo((props: NodeProps) => {
 
   return (
     <div 
-      className="bg-card/70 backdrop-blur-sm border border-muted-foreground/30 rounded-md p-3 min-w-[200px] max-w-[240px] shadow transition-all hover:shadow-md hover:border-muted-foreground/50"
+      className={`bg-card/70 backdrop-blur-sm border-2 rounded-md p-3 min-w-[200px] max-w-[240px] shadow transition-all hover:shadow-md ${
+        isSelected 
+          ? 'border-primary/50 ring-2 ring-primary/15 shadow-[0_0_12px_rgba(168,85,247,0.15)]' 
+          : 'border-muted-foreground/25 hover:border-muted-foreground/40'
+      }`}
       style={{
         fontFamily: "'Comic Neue', 'Comic Sans MS', cursive",
         ...(customColor ? { 

@@ -15,6 +15,7 @@ interface TitleNodeData {
 export const TitleNode = memo((props: NodeProps) => {
   const data = props.data as unknown as TitleNodeData;
   const customColor = data.customColor;
+  const isSelected = props.selected;
 
   const handleElaborate = () => {
     if (data.onElaborate) {
@@ -24,7 +25,11 @@ export const TitleNode = memo((props: NodeProps) => {
 
   return (
     <div 
-      className="bg-card/80 backdrop-blur-sm border border-accent/50 rounded-lg p-4 min-w-[220px] max-w-[280px] shadow-md transition-all hover:shadow-lg hover:border-accent"
+      className={`bg-card/80 backdrop-blur-sm border-2 rounded-lg p-4 min-w-[220px] max-w-[280px] shadow-md transition-all hover:shadow-lg ${
+        isSelected 
+          ? 'border-primary/60 ring-2 ring-primary/20 shadow-[0_0_15px_rgba(168,85,247,0.2)]' 
+          : 'border-accent/40 hover:border-accent/60'
+      }`}
       style={{
         fontFamily: "'Comic Neue', 'Comic Sans MS', cursive",
         ...(customColor ? { 

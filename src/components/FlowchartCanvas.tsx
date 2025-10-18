@@ -19,6 +19,7 @@ import '@xyflow/react/dist/style.css';
 import { SubjectNode } from './nodes/SubjectNode';
 import { TitleNode } from './nodes/TitleNode';
 import { DescriptionNode } from './nodes/DescriptionNode';
+import { CombinedNode } from './nodes/CombinedNode';
 import { ContextMenu } from './ContextMenu';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Layers, RotateCcw, Zap, Grid3X3 } from 'lucide-react';
@@ -30,6 +31,7 @@ const nodeTypes = {
   subject: SubjectNode,
   title: TitleNode,
   description: DescriptionNode,
+  combined: CombinedNode,
 };
 
 interface FlowchartData {
@@ -155,7 +157,7 @@ const createMindMapLayout = (
 };
 
 const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: FlowchartCanvasProps) => {
-  const { horizontalSpacing, verticalSpacing, showGrid, autoLayout } = useSettings();
+  const { horizontalSpacing, verticalSpacing, showGrid, autoLayout, canvasBackground } = useSettings();
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -286,14 +288,14 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       if (existingIds.has(id)) return null as any;
       return {
         id,
-        type: 'description',
+        type: 'combined',
         position: { x: 0, y: 0 }, // Will be positioned by layout
         data: {
+          title: item.title ?? 'No title',
           description: item.description ?? 'No description',
           itemNumber,
           onElaborate: handleElaborate,
-          isLoading: false,
-          title: item.title ?? ''
+          isLoading: false
         },
         draggable: true,
         selectable: true,
@@ -450,24 +452,98 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     setIsReorganizing(true);
     
     setTimeout(() => {
-      const layoutedNodes = calculateProfessionalTreeLayout(
-        nodes,
-        edges,
-        {
-          nodeWidth: 350,
-          nodeHeight: 180,
-          levelSpacing: Math.max(250, verticalSpacing || 400),
-          siblingSpacing: Math.max(200, horizontalSpacing || 350),
-          childSpacing: 200,
-          centerAlignment: true,
-          collisionDetection: true
+      // Build hierarchical structure
+      const childrenMap: Record<string, string[]> = {};
+      edges.forEach(edge => {
+        if (!childrenMap[edge.source]) {
+          childrenMap[edge.source] = [];
         }
-      );
+        childrenMap[edge.source].push(edge.target);
+      });
+
+      // Find root (subject node)
+      const rootNode = nodes.find(n => n.type === 'subject');
+      if (!rootNode) {
+        setIsReorganizing(false);
+        return;
+      }
+
+      const positionedNodes: Record<string, { x: number; y: number }> = {};
+      const levelGap = Math.max(300, verticalSpacing || 400);
+      const siblingGap = Math.max(280, horizontalSpacing || 350);
+
+      // Position nodes recursively
+      const positionSubtree = (nodeId: string, level: number): number => {
+        const children = childrenMap[nodeId] || [];
+        
+        if (children.length === 0) {
+          // Leaf node
+          return 1;
+        }
+
+        let totalWidth = 0;
+        const childWidths: number[] = [];
+        
+        // Calculate widths for all children
+        children.forEach(childId => {
+          const width = positionSubtree(childId, level + 1);
+          childWidths.push(width);
+          totalWidth += width;
+        });
+
+        // Position children
+        let currentX = 0;
+        children.forEach((childId, idx) => {
+          const childWidth = childWidths[idx];
+          const childCenterOffset = (childWidth - 1) * siblingGap / 2;
+          positionedNodes[childId] = {
+            x: currentX + childCenterOffset,
+            y: level * levelGap
+          };
+          currentX += childWidth * siblingGap;
+        });
+
+        // Center parent above children
+        const firstChildX = positionedNodes[children[0]].x;
+        const lastChildX = positionedNodes[children[children.length - 1]].x;
+        positionedNodes[nodeId] = {
+          x: (firstChildX + lastChildX) / 2,
+          y: (level - 1) * levelGap
+        };
+
+        return totalWidth;
+      };
+
+      // Start positioning from root
+      positionSubtree(rootNode.id, 1);
+      positionedNodes[rootNode.id] = { x: 0, y: 0 };
+
+      // Apply positions and center the tree
+      const allX = Object.values(positionedNodes).map(p => p.x);
+      const minX = Math.min(...allX);
+      const maxX = Math.max(...allX);
+      const centerOffset = -(minX + maxX) / 2;
+
+      const layoutedNodes = nodes.map(node => ({
+        ...node,
+        position: {
+          x: Math.round((positionedNodes[node.id]?.x || 0) + centerOffset),
+          y: Math.round(positionedNodes[node.id]?.y || 0)
+        }
+      }));
+
       setNodes(layoutedNodes);
       setIsReorganizing(false);
-      toast.success('Canvas reorganized with spacious layout');
+      toast.success('Canvas reorganized in structured top-down layout');
+      
+      // Fit view after reorganization
+      setTimeout(() => {
+        try {
+          rf.fitView({ padding: 0.2, duration: 500 });
+        } catch {}
+      }, 100);
     }, 100);
-  }, [nodes, edges, horizontalSpacing, verticalSpacing]);
+  }, [nodes, edges, horizontalSpacing, verticalSpacing, rf]);
 
 
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
@@ -513,12 +589,14 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       selectable: true,
     };
 
-    const titleNodes: Node[] = data.map((item, index) => ({
-      id: `title-${item.itemNumber}`,
-      type: 'title',
+    // Use combined nodes instead of separate title and description
+    const combinedNodes: Node[] = data.map((item, index) => ({
+      id: `combined-${item.itemNumber}`,
+      type: 'combined',
       position: { x: 0, y: 0 }, // Will be positioned by layout
       data: { 
-        title: item.title, 
+        title: item.title,
+        description: item.description,
         itemNumber: item.itemNumber,
         onElaborate: handleElaborate,
         isLoading: false 
@@ -527,62 +605,53 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       selectable: true,
     }));
 
-    const descriptionNodes: Node[] = data.map((item, index) => ({
-      id: `desc-${item.itemNumber}`,
-      type: 'description',
-      position: { x: 0, y: 0 }, // Will be positioned by layout
-      data: { 
-        description: item.description, 
-        itemNumber: item.itemNumber,
-        onElaborate: handleElaborate,
-        isLoading: false 
-      },
-      draggable: true,
-      selectable: true,
-    }));
-
-    const allNodes = [subjectNode, ...titleNodes, ...descriptionNodes];
-    return createMindMapLayout(allNodes, [], horizontalSpacing, verticalSpacing);
+    const allNodes = [subjectNode, ...combinedNodes];
+    
+    // Position nodes in top-down format
+    const positionedNodes = allNodes.map((node, index) => {
+      if (index === 0) {
+        // Subject node at top center
+        return { ...node, position: { x: 0, y: 0 } };
+      } else {
+        // Combined nodes arranged horizontally below subject
+        const totalWidth = (combinedNodes.length - 1) * horizontalSpacing;
+        const startX = -totalWidth / 2;
+        const nodeIndex = index - 1;
+        return {
+          ...node,
+          position: {
+            x: startX + (nodeIndex * horizontalSpacing),
+            y: verticalSpacing
+          }
+        };
+      }
+    });
+    
+    return positionedNodes;
   }, [data, subject, handleElaborate, horizontalSpacing, verticalSpacing]);
 
   const initialEdges = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const subjectToTitleEdges: Edge[] = data.map((item) => ({
-      id: `subject->title-${item.itemNumber}`,
+    // Connect subject to combined nodes
+    const subjectToCombinedEdges: Edge[] = data.map((item) => ({
+      id: `subject->combined-${item.itemNumber}`,
       source: 'subject',
       sourceHandle: 'bottom',
-      target: `title-${item.itemNumber}`,
+      target: `combined-${item.itemNumber}`,
       targetHandle: 'top',
-      type: 'default',
+      type: 'smoothstep',
       style: { 
-        stroke: 'hsl(var(--muted-foreground))', 
-        strokeWidth: 2
+        stroke: 'hsl(var(--primary))', 
+        strokeWidth: 2.5
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: 'hsl(var(--muted-foreground))'
+        color: 'hsl(var(--primary))'
       },
     }));
 
-    const titleToDescEdges: Edge[] = data.map((item) => ({
-      id: `title-${item.itemNumber}->desc-${item.itemNumber}`,
-      source: `title-${item.itemNumber}`,
-      sourceHandle: 'bottom',
-      target: `desc-${item.itemNumber}`,
-      targetHandle: 'top',
-      type: 'default',
-      style: { 
-        stroke: 'hsl(var(--muted-foreground))', 
-        strokeWidth: 2
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: 'hsl(var(--muted-foreground))'
-      },
-    }));
-
-    return [...subjectToTitleEdges, ...titleToDescEdges];
+    return subjectToCombinedEdges;
   }, [data]);
 
   const initializedDataRef = useRef<string>('');
@@ -720,12 +789,22 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
             boxShadow: '0 10px 30px -10px hsl(0 0% 0% / 0.8)',
           }}
         />
-        <Background 
-          variant={BackgroundVariant.Lines}
-          gap={20}
-          color="hsl(var(--border))"
-          style={{ opacity: showGrid ? 0.3 : 0 }}
-        />
+        {canvasBackground === 'dots' ? (
+          <Background 
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={2}
+            color="hsl(var(--primary) / 0.4)"
+            style={{ opacity: 1 }}
+          />
+        ) : (
+          <Background 
+            variant={BackgroundVariant.Lines}
+            gap={20}
+            color="hsl(var(--border))"
+            style={{ opacity: showGrid ? 0.3 : 0 }}
+          />
+        )}
       </ReactFlow>
 
       {/* Context Menu */}
