@@ -262,6 +262,51 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     toast.success('Color changed');
   }, [setNodes]);
 
+  // Collision detection helper - check if nodes overlap
+  const detectAndResolveCollisions = useCallback((allNodes: Node[], newChildIds: string[], parentId: string) => {
+    const maxIterations = 50;
+    const repulsionForce = 30;
+    const minDistance = 350; // Minimum distance between node centers
+    
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+      let hasCollision = false;
+      
+      // Check all pairs of nodes for collisions
+      for (let i = 0; i < allNodes.length; i++) {
+        for (let j = i + 1; j < allNodes.length; j++) {
+          const node1 = allNodes[i];
+          const node2 = allNodes[j];
+          
+          // Calculate distance between nodes
+          const dx = node2.position.x - node1.position.x;
+          const dy = node2.position.y - node1.position.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // If nodes are too close, apply repulsion
+          if (distance < minDistance && distance > 0) {
+            hasCollision = true;
+            
+            // Calculate repulsion force
+            const force = (minDistance - distance) / distance;
+            const fx = (dx / distance) * force * repulsionForce;
+            const fy = (dy / distance) * force * repulsionForce * 0.3; // Less vertical movement
+            
+            // Apply force to both nodes
+            node1.position.x -= fx * 0.5;
+            node1.position.y -= fy * 0.5;
+            node2.position.x += fx * 0.5;
+            node2.position.y += fy * 0.5;
+          }
+        }
+      }
+      
+      // If no collisions detected, we're done
+      if (!hasCollision) break;
+    }
+    
+    return allNodes;
+  }, []);
+
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
     const items = (Array.isArray(responseJson) && responseJson[0]?.output?.items)
       ? responseJson[0].output.items
@@ -316,16 +361,16 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         sourceHandle: 'bottom',
         target: targetId,
         targetHandle: 'top',
-      type: 'default',
-      animated: false,
-      style: { 
-        stroke: 'hsl(var(--muted-foreground))', 
-        strokeWidth: 2
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: 'hsl(var(--muted-foreground))'
-      },
+        type: 'smoothstep',
+        animated: false,
+        style: { 
+          stroke: 'hsl(var(--primary))', 
+          strokeWidth: 2.5
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: 'hsl(var(--primary))'
+        },
       } as Edge;
     }).filter(Boolean as any);
 
@@ -360,49 +405,57 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         return a.id.localeCompare(b.id);
       });
 
-      const childSpacing = Math.max(300, horizontalSpacing || 350); // horizontal gap between siblings
-      const levelSpacing = Math.max(300, verticalSpacing || 400);   // vertical gap below parent
+      const childSpacing = Math.max(400, horizontalSpacing || 450); // horizontal gap between siblings
+      const levelSpacing = Math.max(350, verticalSpacing || 450);   // vertical gap below parent
 
-      // Compute centered row under parent
+      // Compute centered row under parent (horizontal layout like main canvas)
       const totalWidth = (allChildren.length - 1) * childSpacing;
       const startX = parent.position.x - totalWidth / 2;
       const rowY = parent.position.y + levelSpacing;
 
-      // Reposition existing children already in prevNodes with rounded positions
-      const updatedPrevNodes = prevNodes.map(n => {
-        const idx = allChildren.findIndex(c => c.id === n.id);
-        if (idx === -1) return n;
-        
+      // Create updated nodes array with all nodes
+      let updatedNodes = [...prevNodes];
+
+      // Position all children horizontally below parent
+      allChildren.forEach((child, idx) => {
         const targetX = startX + idx * childSpacing;
         const targetY = rowY;
         
-        return {
-          ...n,
-          position: { 
-            x: Math.round(targetX), 
-            y: Math.round(targetY) 
-          }
-        };
-      });
-
-      // Append newly created children with correct positions
-      const appendedNewNodes = newNodes
-        .filter(n => !prevNodes.some(p => p.id === n.id))
-        .map(n => {
-          const idx = allChildren.findIndex(c => c.id === n.id);
-          const targetX = startX + idx * childSpacing;
-          const targetY = rowY;
-          
-          return {
-            ...n,
+        const nodeIndex = updatedNodes.findIndex(n => n.id === child.id);
+        if (nodeIndex !== -1) {
+          // Update existing node
+          updatedNodes[nodeIndex] = {
+            ...updatedNodes[nodeIndex],
             position: { 
               x: Math.round(targetX), 
               y: Math.round(targetY) 
             }
           };
-        });
+        }
+      });
 
-      return [...updatedPrevNodes, ...appendedNewNodes];
+      // Add newly created children
+      const newChildIds = newNodes.map(n => n.id);
+      newNodes.forEach((n, idx) => {
+        if (!updatedNodes.some(existing => existing.id === n.id)) {
+          const childIdx = allChildren.findIndex(c => c.id === n.id);
+          const targetX = startX + childIdx * childSpacing;
+          const targetY = rowY;
+          
+          updatedNodes.push({
+            ...n,
+            position: { 
+              x: Math.round(targetX), 
+              y: Math.round(targetY) 
+            }
+          });
+        }
+      });
+
+      // Apply collision detection to prevent overlapping
+      updatedNodes = detectAndResolveCollisions(updatedNodes, newChildIds, parentNodeId);
+
+      return updatedNodes;
     });
 
     setEdges(prevEdges => {
@@ -419,7 +472,7 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     }, 0);
     
     toast.success(`Added ${items.length} new nodes`);
-  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate, rf]);
+  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate, rf, detectAndResolveCollisions]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(prevNodes => {
@@ -700,9 +753,36 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     }
   }, [nodes.length, rf]);
 
+  // Save canvas data whenever nodes/edges change
+  const saveCanvasData = useCallback(() => {
+    if (nodes.length > 0) {
+      // Normalize positions by rounding to ensure exact positioning
+      const normalizedNodes = nodes.map(node => ({
+        ...node,
+        position: {
+          x: Math.round(node.position.x),
+          y: Math.round(node.position.y)
+        }
+      }));
+      
+      if (onSnapshot) {
+        onSnapshot({ nodes: normalizedNodes, edges });
+      }
+      toast.success('Canvas saved successfully');
+    }
+  }, [nodes, edges, onSnapshot]);
+
   useEffect(() => {
     if (onSnapshot) {
-      onSnapshot({ nodes, edges });
+      // Auto-save with normalized positions
+      const normalizedNodes = nodes.map(node => ({
+        ...node,
+        position: {
+          x: Math.round(node.position.x),
+          y: Math.round(node.position.y)
+        }
+      }));
+      onSnapshot({ nodes: normalizedNodes, edges });
     }
   }, [nodes, edges, onSnapshot]);
 
@@ -724,6 +804,15 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={saveCanvasData}
+          className="glass-panel border-border hover:bg-accent/50"
+        >
+          <Layers className="w-4 h-4" />
+          Save Canvas
+        </Button>
         <Button
           variant="outline"
           size="sm"
