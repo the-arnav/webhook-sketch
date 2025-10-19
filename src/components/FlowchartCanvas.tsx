@@ -22,7 +22,7 @@ import { DescriptionNode } from './nodes/DescriptionNode';
 import { CombinedNode } from './nodes/CombinedNode';
 import { ContextMenu } from './ContextMenu';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Layers, RotateCcw, Zap, Grid3X3 } from 'lucide-react';
+import { RefreshCw, Layers, Undo, Redo, Grid3X3 } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { calculateProfessionalTreeLayout } from '@/utils/nodeLayout';
 import { toast } from 'sonner';
@@ -171,6 +171,11 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
   const [isReorganizing, setIsReorganizing] = useState(false);
   const rf = useReactFlow();
 
+  // History state for undo/redo
+  const [history, setHistory] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedoAction = useRef(false);
+
   const handleElaborate = useCallback(async (nodeId: string, content: string) => {
     if (loadingNodes.has(nodeId)) {
       return;
@@ -262,49 +267,63 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     toast.success('Color changed');
   }, [setNodes]);
 
-  // Collision detection helper - check if nodes overlap
-  const detectAndResolveCollisions = useCallback((allNodes: Node[], newChildIds: string[], parentId: string) => {
-    const maxIterations = 50;
-    const repulsionForce = 30;
-    const minDistance = 350; // Minimum distance between node centers
+  // Smart positioning that keeps nodes compact and avoids overlaps
+  const smartPositionNodes = useCallback((
+    parent: Node,
+    children: Node[],
+    existingNodes: Node[]
+  ): Node[] => {
+    const nodeWidth = 280;
+    const nodeHeight = 200;
+    const horizontalGap = 80;
+    const verticalGap = 100;
     
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
-      let hasCollision = false;
+    // Calculate positions for children in a horizontal row
+    const totalWidth = (children.length - 1) * (nodeWidth + horizontalGap);
+    const startX = parent.position.x - totalWidth / 2;
+    const childY = parent.position.y + nodeHeight + verticalGap;
+    
+    // Position children
+    const positionedChildren = children.map((child, idx) => ({
+      ...child,
+      position: {
+        x: Math.round(startX + idx * (nodeWidth + horizontalGap)),
+        y: Math.round(childY)
+      }
+    }));
+    
+    // Check for overlaps with existing nodes and adjust if needed
+    const checkOverlap = (node1: Node, node2: Node): boolean => {
+      const buffer = 40; // Minimum space between nodes
+      const dx = Math.abs(node1.position.x - node2.position.x);
+      const dy = Math.abs(node1.position.y - node2.position.y);
+      return dx < nodeWidth + buffer && dy < nodeHeight + buffer;
+    };
+    
+    // Adjust positions to avoid overlaps
+    positionedChildren.forEach(child => {
+      let hasOverlap = true;
+      let attempts = 0;
+      const maxAttempts = 20;
       
-      // Check all pairs of nodes for collisions
-      for (let i = 0; i < allNodes.length; i++) {
-        for (let j = i + 1; j < allNodes.length; j++) {
-          const node1 = allNodes[i];
-          const node2 = allNodes[j];
-          
-          // Calculate distance between nodes
-          const dx = node2.position.x - node1.position.x;
-          const dy = node2.position.y - node1.position.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          // If nodes are too close, apply repulsion
-          if (distance < minDistance && distance > 0) {
-            hasCollision = true;
-            
-            // Calculate repulsion force
-            const force = (minDistance - distance) / distance;
-            const fx = (dx / distance) * force * repulsionForce;
-            const fy = (dy / distance) * force * repulsionForce * 0.3; // Less vertical movement
-            
-            // Apply force to both nodes
-            node1.position.x -= fx * 0.5;
-            node1.position.y -= fy * 0.5;
-            node2.position.x += fx * 0.5;
-            node2.position.y += fy * 0.5;
+      while (hasOverlap && attempts < maxAttempts) {
+        hasOverlap = false;
+        
+        for (const existing of existingNodes) {
+          if (existing.id !== child.id && existing.id !== parent.id) {
+            if (checkOverlap(child, existing)) {
+              hasOverlap = true;
+              // Move slightly to the right to avoid overlap
+              child.position.x += nodeWidth / 2 + horizontalGap / 2;
+              break;
+            }
           }
         }
+        attempts++;
       }
-      
-      // If no collisions detected, we're done
-      if (!hasCollision) break;
-    }
+    });
     
-    return allNodes;
+    return positionedChildren;
   }, []);
 
   const handleElaborateResponse = useCallback((parentNodeId: string, responseJson: any) => {
@@ -405,55 +424,25 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
         return a.id.localeCompare(b.id);
       });
 
-      const childSpacing = Math.max(400, horizontalSpacing || 450); // horizontal gap between siblings
-      const levelSpacing = Math.max(350, verticalSpacing || 450);   // vertical gap below parent
-
-      // Compute centered row under parent (horizontal layout like main canvas)
-      const totalWidth = (allChildren.length - 1) * childSpacing;
-      const startX = parent.position.x - totalWidth / 2;
-      const rowY = parent.position.y + levelSpacing;
-
-      // Create updated nodes array with all nodes
+      // Use smart positioning for compact layout
+      const positionedChildren = smartPositionNodes(parent, allChildren, prevNodes);
+      
+      // Create updated nodes array
       let updatedNodes = [...prevNodes];
-
-      // Position all children horizontally below parent
-      allChildren.forEach((child, idx) => {
-        const targetX = startX + idx * childSpacing;
-        const targetY = rowY;
-        
+      
+      // Update positions for positioned children
+      positionedChildren.forEach(child => {
         const nodeIndex = updatedNodes.findIndex(n => n.id === child.id);
         if (nodeIndex !== -1) {
-          // Update existing node
           updatedNodes[nodeIndex] = {
             ...updatedNodes[nodeIndex],
-            position: { 
-              x: Math.round(targetX), 
-              y: Math.round(targetY) 
-            }
+            position: child.position
           };
+        } else {
+          // Add new node
+          updatedNodes.push(child);
         }
       });
-
-      // Add newly created children
-      const newChildIds = newNodes.map(n => n.id);
-      newNodes.forEach((n, idx) => {
-        if (!updatedNodes.some(existing => existing.id === n.id)) {
-          const childIdx = allChildren.findIndex(c => c.id === n.id);
-          const targetX = startX + childIdx * childSpacing;
-          const targetY = rowY;
-          
-          updatedNodes.push({
-            ...n,
-            position: { 
-              x: Math.round(targetX), 
-              y: Math.round(targetY) 
-            }
-          });
-        }
-      });
-
-      // Apply collision detection to prevent overlapping
-      updatedNodes = detectAndResolveCollisions(updatedNodes, newChildIds, parentNodeId);
 
       return updatedNodes;
     });
@@ -472,7 +461,7 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     }, 0);
     
     toast.success(`Added ${items.length} new nodes`);
-  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate, rf, detectAndResolveCollisions]);
+  }, [nodes, edges, autoLayout, horizontalSpacing, verticalSpacing, handleElaborate, rf, smartPositionNodes]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(prevNodes => {
@@ -753,6 +742,55 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
     }
   }, [nodes.length, rf]);
 
+  // Undo functionality
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      isUndoRedoAction.current = true;
+      const prevState = history[historyIndex - 1];
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      setHistoryIndex(historyIndex - 1);
+      toast.success('Undone');
+      setTimeout(() => { isUndoRedoAction.current = false; }, 100);
+    } else {
+      toast.error('Nothing to undo');
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Redo functionality
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isUndoRedoAction.current = true;
+      const nextState = history[historyIndex + 1];
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setHistoryIndex(historyIndex + 1);
+      toast.success('Redone');
+      setTimeout(() => { isUndoRedoAction.current = false; }, 100);
+    } else {
+      toast.error('Nothing to redo');
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Track history changes
+  useEffect(() => {
+    if (nodes.length > 0 && !isUndoRedoAction.current) {
+      const newState = { nodes, edges };
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newState);
+      
+      // Limit history to last 50 states
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      } else {
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      }
+    }
+  }, [nodes, edges]);
+
   // Save canvas data whenever nodes/edges change
   const saveCanvasData = useCallback(() => {
     if (nodes.length > 0) {
@@ -804,6 +842,26 @@ const FlowchartCanvasInner = ({ data, subject, onSnapshot, initialSnapshot }: Fl
       
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleUndo}
+          disabled={historyIndex <= 0}
+          className="glass-panel border-border hover:bg-accent/50"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRedo}
+          disabled={historyIndex >= history.length - 1}
+          className="glass-panel border-border hover:bg-accent/50"
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo className="w-4 h-4" />
+        </Button>
         <Button
           variant="outline"
           size="sm"
